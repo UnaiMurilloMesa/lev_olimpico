@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+backend/models/*.task
+backend/storage/*
+!backend/storage/.gitkeep
+.idea/
+.gradle/
+frontend/local.properties
+frontend/build/
+frontend/app/build/
+*.iml
