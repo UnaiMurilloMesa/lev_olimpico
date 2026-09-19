@@ -1,0 +1,47 @@
+"""Topología del esqueleto: pares de puntos que se unen al dibujar la pose."""
+
+from app.domain.landmarks import PoseLandmarkId as P
+
+POSE_CONNECTIONS: tuple[tuple[int, int], ...] = (
+    # Cara
+    (P.NOSE, P.LEFT_EYE_INNER),
+    (P.LEFT_EYE_INNER, P.LEFT_EYE),
+    (P.LEFT_EYE, P.LEFT_EYE_OUTER),
+    (P.LEFT_EYE_OUTER, P.LEFT_EAR),
+    (P.NOSE, P.RIGHT_EYE_INNER),
+    (P.RIGHT_EYE_INNER, P.RIGHT_EYE),
+    (P.RIGHT_EYE, P.RIGHT_EYE_OUTER),
+    (P.RIGHT_EYE_OUTER, P.RIGHT_EAR),
+    (P.MOUTH_LEFT, P.MOUTH_RIGHT),
+    # Torso
+    (P.LEFT_SHOULDER, P.RIGHT_SHOULDER),
+    (P.LEFT_SHOULDER, P.LEFT_HIP),
+    (P.RIGHT_SHOULDER, P.RIGHT_HIP),
+    (P.LEFT_HIP, P.RIGHT_HIP),
+    # Brazo izquierdo
+    (P.LEFT_SHOULDER, P.LEFT_ELBOW),
+    (P.LEFT_ELBOW, P.LEFT_WRIST),
+    (P.LEFT_WRIST, P.LEFT_THUMB),
+    (P.LEFT_WRIST, P.LEFT_INDEX),
+    (P.LEFT_WRIST, P.LEFT_PINKY),
+    (P.LEFT_PINKY, P.LEFT_INDEX),
+    # Brazo derecho
+    (P.RIGHT_SHOULDER, P.RIGHT_ELBOW),
+    (P.RIGHT_ELBOW, P.RIGHT_WRIST),
+    (P.RIGHT_WRIST, P.RIGHT_THUMB),
+    (P.RIGHT_WRIST, P.RIGHT_INDEX),
+    (P.RIGHT_WRIST, P.RIGHT_PINKY),
+    (P.RIGHT_PINKY, P.RIGHT_INDEX),
+    # Pierna izquierda
+    (P.LEFT_HIP, P.LEFT_KNEE),
+    (P.LEFT_KNEE, P.LEFT_ANKLE),
+    (P.LEFT_ANKLE, P.LEFT_HEEL),
+    (P.LEFT_HEEL, P.LEFT_FOOT_INDEX),
+    (P.LEFT_ANKLE, P.LEFT_FOOT_INDEX),
+    # Pierna derecha
+    (P.RIGHT_HIP, P.RIGHT_KNEE),
+    (P.RIGHT_KNEE, P.RIGHT_ANKLE),
+    (P.RIGHT_ANKLE, P.RIGHT_HEEL),
+    (P.RIGHT_HEEL, P.RIGHT_FOOT_INDEX),
+    (P.RIGHT_ANKLE, P.RIGHT_FOOT_INDEX),
+)
