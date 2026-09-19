@@ -47,3 +47,6 @@ disallow_untyped_decorators = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --cov=app --cov-report=term-missing --cov-fail-under=70"
+markers = [
+    "slow: pruebas que cargan el modelo real o invocan ffmpeg",
+]
