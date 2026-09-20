@@ -7,9 +7,30 @@ import numpy as np
 import pytest
 
 from app.domain.landmarks import Landmark, PoseFrame
-from app.services.video.processor import VideoPoseProcessor, VideoProcessingError
+from app.services.video.processor import VideoPoseProcessor, VideoProcessingError, DEFAULT_FPS, MAX_FPS, sanitize_fps
 
 WIDTH, HEIGHT, FPS, FRAMES = 64, 48, 30.0, 10
+
+@pytest.mark.parametrize(
+    ("entrada", "esperado"),
+    [
+        (30.0, 30.0),
+        (29.97, 30.0),
+        (92.121, 92.0),  # Caso real: cámara lenta de móvil
+        (59.94, 60.0),
+    ],
+)
+def test_redondea_los_fps_fraccionarios(entrada: float, esperado: float) -> None:
+    assert sanitize_fps(entrada) == esperado
+
+
+@pytest.mark.parametrize("entrada", [0.0, -1.0])
+def test_usa_el_valor_por_defecto_si_los_fps_no_son_validos(entrada: float) -> None:
+    assert sanitize_fps(entrada) == DEFAULT_FPS
+
+
+def test_acota_los_fps_excesivos() -> None:
+    assert sanitize_fps(1000.0) == MAX_FPS
 
 
 class FakeEstimator:

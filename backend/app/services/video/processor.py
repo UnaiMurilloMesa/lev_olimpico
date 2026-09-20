@@ -14,7 +14,20 @@ from app.services.pose.renderer import FrameRenderer
 logger = logging.getLogger(__name__)
 
 DEFAULT_FPS = 30.0
+MIN_FPS = 1.0
+MAX_FPS = 240.0
 OUTPUT_FOURCC = "mp4v"
+
+def sanitize_fps(raw_fps: float) -> float:
+    """Normaliza la tasa de fotogramas leída de un vídeo.
+
+    Los vídeos de móvil suelen declarar tasas fraccionarias (p. ej. 92.121 fps)
+    que el estándar MPEG-4 no admite como base de tiempo, por lo que se redondea
+    a un entero y se acota a un rango razonable.
+    """
+    if not raw_fps or raw_fps <= 0:
+        return DEFAULT_FPS
+    return float(min(max(round(raw_fps), MIN_FPS), MAX_FPS))
 
 
 class VideoProcessingError(RuntimeError):
@@ -133,10 +146,10 @@ class VideoPoseProcessor:
     @staticmethod
     def _read_metadata(capture: cv2.VideoCapture) -> VideoMetadata:
         """Extrae las propiedades del vídeo abierto."""
-        fps = capture.get(cv2.CAP_PROP_FPS)
-        if not fps or fps <= 0:
-            logger.warning("FPS no disponibles en el vídeo; se asume %.1f", DEFAULT_FPS)
-            fps = DEFAULT_FPS
+        raw_fps = capture.get(cv2.CAP_PROP_FPS)
+        fps = sanitize_fps(raw_fps)
+        if fps != raw_fps:
+            logger.warning("FPS ajustados de %s a %s por compatibilidad", raw_fps, fps)
         return VideoMetadata(
             width=int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
             height=int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)),
