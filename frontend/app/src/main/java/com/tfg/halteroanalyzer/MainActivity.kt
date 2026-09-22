@@ -7,41 +7,35 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tfg.halteroanalyzer.ui.analysis.AnalysisScreen
+import com.tfg.halteroanalyzer.ui.analysis.AnalysisViewModel
 import com.tfg.halteroanalyzer.ui.theme.HalteroAnalyzerTheme
+import java.io.File
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val container = (application as HalteroAnalyzerApp).container
+        val factory = AnalysisViewModel.Factory(
+            repository = container.analysisRepository,
+            videoSourceProvider = container::videoSourceFor,
+            resultFileProvider = { jobId -> File(cacheDir, "$jobId.mp4") },
+        )
+
         setContent {
             HalteroAnalyzerTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
+                    AnalysisScreen(
+                        viewModel = viewModel(factory = factory),
+                        modifier = Modifier.padding(innerPadding),
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    HalteroAnalyzerTheme {
-        Greeting("Android")
     }
 }

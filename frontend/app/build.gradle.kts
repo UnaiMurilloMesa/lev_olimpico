@@ -19,7 +19,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8000/\"")
+        buildConfigField("String", "BASE_URL", "\"http://localhost:8000/\"")
     }
 
     buildTypes {
@@ -71,6 +71,8 @@ dependencies {
     testImplementation(libs.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+
+    implementation(libs.androidx.lifecycle.runtime.compose)
 }
 
 tasks.withType<Test>().configureEach {

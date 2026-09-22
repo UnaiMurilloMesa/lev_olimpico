@@ -8,7 +8,9 @@ import org.junit.Test
 import java.io.File
 import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AnalysisStatusPollerTest {
 
     private val jobId = "abc"

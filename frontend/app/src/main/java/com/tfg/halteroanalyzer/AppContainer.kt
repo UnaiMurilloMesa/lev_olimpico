@@ -16,6 +16,6 @@ class AppContainer(private val context: Context) {
         RemoteAnalysisRepository(NetworkFactory.createAnalysisApi(BuildConfig.BASE_URL, client))
     }
 
-    fun videoSourceFor(uri: Uri): VideoSource =
-        ContentResolverVideoSource.from(context.contentResolver, uri)
+    fun videoSourceFor(uri: String): VideoSource =
+        ContentResolverVideoSource.from(context.contentResolver, Uri.parse(uri))
 }
