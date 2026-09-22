@@ -11,4 +11,7 @@ sealed class AnalysisException(message: String, cause: Throwable? = null) :
 
     class Unexpected(cause: Throwable) :
         AnalysisException("Respuesta inesperada del servidor.", cause)
+
+    class Timeout(val jobId: String) :
+        AnalysisException("El análisis está tardando más de lo previsto.")
 }
