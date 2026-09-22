@@ -16,7 +16,9 @@ class AnalysisStatusPollerTest {
     @Test
     fun `emite los estados hasta que el analisis se completa`() = runTest {
         val repository = FakeRepository(
-            listOf(state(JobStatus.PENDING), state(JobStatus.PROCESSING), state(JobStatus.COMPLETED)),
+            state(JobStatus.PENDING),
+            state(JobStatus.PROCESSING),
+            state(JobStatus.COMPLETED),
         )
         val poller = AnalysisStatusPoller(repository, pollInterval = 2.seconds)
 
@@ -30,7 +32,7 @@ class AnalysisStatusPollerTest {
 
     @Test
     fun `deja de consultar cuando el analisis falla`() = runTest {
-        val repository = FakeRepository(listOf(state(JobStatus.PROCESSING), state(JobStatus.FAILED)))
+        val repository = FakeRepository(state(JobStatus.PROCESSING), state(JobStatus.FAILED))
         val poller = AnalysisStatusPoller(repository, pollInterval = 2.seconds)
 
         val emitted = poller.poll(jobId).toList()
@@ -41,28 +43,27 @@ class AnalysisStatusPollerTest {
 
     @Test
     fun `la primera consulta no espera al intervalo`() = runTest {
-        val repository = FakeRepository(listOf(state(JobStatus.COMPLETED)))
+        val repository = FakeRepository(state(JobStatus.COMPLETED))
         val poller = AnalysisStatusPoller(repository, pollInterval = 30.seconds)
 
         poller.poll(jobId).toList()
 
-        assertEquals(0, testScheduler.currentTime)
+        assertEquals(0, currentTime)
     }
 
     @Test
     fun `espera el intervalo entre consultas sucesivas`() = runTest {
-        val repository =
-            FakeRepository(listOf(state(JobStatus.PROCESSING), state(JobStatus.COMPLETED)))
+        val repository = FakeRepository(state(JobStatus.PROCESSING), state(JobStatus.COMPLETED))
         val poller = AnalysisStatusPoller(repository, pollInterval = 5.seconds)
 
         poller.poll(jobId).toList()
 
-        assertEquals(5_000, testScheduler.currentTime)
+        assertEquals(5_000, currentTime)
     }
 
     @Test
     fun `agota los intentos si el analisis nunca termina`() = runTest {
-        val repository = FakeRepository(listOf(state(JobStatus.PROCESSING)))
+        val repository = FakeRepository(state(JobStatus.PROCESSING))
         val poller = AnalysisStatusPoller(repository, pollInterval = 1.seconds, maxAttempts = 4)
 
         val error = runCatching { poller.poll(jobId).toList() }.exceptionOrNull()
@@ -73,8 +74,7 @@ class AnalysisStatusPollerTest {
 
     @Test
     fun `propaga los errores de red`() = runTest {
-        val repository =
-            FakeRepository(listOf(Result.failure(AnalysisException.Network(IOException()))))
+        val repository = FakeRepository(Result.failure(AnalysisException.Network(IOException())))
         val poller = AnalysisStatusPoller(repository, pollInterval = 1.seconds)
 
         val error = runCatching { poller.poll(jobId).toList() }.exceptionOrNull()
@@ -87,7 +87,7 @@ class AnalysisStatusPollerTest {
 
     /** Repositorio que devuelve respuestas predefinidas; repite la última al agotarlas. */
     private class FakeRepository(
-        private val responses: List<Result<AnalysisState>>,
+        private vararg val responses: Result<AnalysisState>,
     ) : AnalysisRepository {
 
         var calls = 0
