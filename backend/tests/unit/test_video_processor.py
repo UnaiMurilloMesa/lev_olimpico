@@ -63,9 +63,7 @@ class SpyRenderer:
 def sample_video(tmp_path: Path) -> Path:
     """Genera un vídeo sintético de prueba."""
     path = tmp_path / "entrada.mp4"
-    writer = cv2.VideoWriter(
-        str(path), cv2.VideoWriter_fourcc(*"mp4v"), FPS, (WIDTH, HEIGHT)
-    )
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*"mp4v"), FPS, (WIDTH, HEIGHT))
     for i in range(FRAMES):
         frame = np.full((HEIGHT, WIDTH, 3), i * 10, dtype=np.uint8)
         writer.write(frame)

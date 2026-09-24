@@ -65,6 +65,13 @@ class ConfidenceLevel(Enum):
         return cls.LOW
 
 
+class LandmarkOrigin(Enum):
+    """Procedencia del valor de un punto corporal."""
+
+    DETECTED = "detected"
+    INTERPOLATED = "interpolated"
+
+
 @dataclass(frozen=True, slots=True)
 class Landmark:
     """Punto corporal en coordenadas normalizadas [0, 1]."""
@@ -73,15 +80,31 @@ class Landmark:
     y: float
     z: float
     visibility: float
+    origin: LandmarkOrigin = LandmarkOrigin.DETECTED
+
+    @property
+    def is_interpolated(self) -> bool:
+        """Indica si el valor se reconstruyó a partir de fotogramas vecinos."""
+        return self.origin is LandmarkOrigin.INTERPOLATED
 
     @property
     def confidence(self) -> ConfidenceLevel:
-        """Nivel de confianza asociado a la visibilidad del punto."""
+        """Nivel de confianza del punto.
+
+        Un punto reconstruido nunca se considera fiable, con independencia de
+        la visibilidad heredada de los fotogramas vecinos.
+        """
+        if self.is_interpolated:
+            return ConfidenceLevel.LOW
         return ConfidenceLevel.from_visibility(self.visibility)
 
     def to_pixels(self, width: int, height: int) -> tuple[int, int]:
         """Convierte las coordenadas normalizadas a píxeles de la imagen."""
         return round(self.x * width), round(self.y * height)
+
+    def moved_to(self, x: float, y: float, z: float) -> Landmark:
+        """Devuelve una copia del punto en una posición distinta."""
+        return Landmark(x=x, y=y, z=z, visibility=self.visibility, origin=self.origin)
 
 
 @dataclass(frozen=True, slots=True)

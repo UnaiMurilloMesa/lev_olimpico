@@ -163,7 +163,7 @@ class VideoPoseProcessor:
         destination.parent.mkdir(parents=True, exist_ok=True)
         writer = cv2.VideoWriter(
             str(destination),
-            cv2.VideoWriter_fourcc(*OUTPUT_FOURCC),
+            cv2.VideoWriter.fourcc(*OUTPUT_FOURCC),
             metadata.fps,
             (metadata.width, metadata.height),
         )
