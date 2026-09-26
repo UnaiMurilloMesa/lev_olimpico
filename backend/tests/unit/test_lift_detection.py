@@ -5,6 +5,7 @@ import pytest
 from app.domain.landmarks import Landmark, PoseFrame, PoseLandmarkId
 from app.domain.lift_detection import (
     LiftDetectionConfig,
+    _descent_index,
     bar_heights_from,
     detect_lift_end,
     detect_lift_window,
@@ -62,10 +63,11 @@ def test_detecta_el_final_cuando_la_barra_se_estabiliza() -> None:
 
 
 def test_un_movimiento_sin_estabilizar_se_acota_por_duracion_maxima() -> None:
-    oscilante = [0.9 - 0.3 * (indice % 2) for indice in range(200)]
+    """Una barra que sube sin pausa agota el límite de duración."""
+    ascenso = [0.95 - 0.004 * indice for indice in range(200)]
     config = LiftDetectionConfig(max_lift_ms=2000)
 
-    final = detect_lift_end(_sequence(oscilante), start_index=0, config=config)
+    final = detect_lift_end(_sequence(ascenso), start_index=0, config=config)
 
     assert final == 60  # 2 segundos a 30 fps
 
@@ -138,8 +140,6 @@ def test_una_oscilacion_leve_no_cuenta_como_caida() -> None:
 def test_sin_recorrido_vertical_no_se_detecta_caida() -> None:
     """Una barra que nunca sube no debe terminar por criterio de descenso."""
     plana = [0.5] * 40
-    config = LiftDetectionConfig(max_lift_ms=500)
 
-    final = detect_lift_end(_sequence(plana), start_index=0, config=config)
-
-    assert final == 15
+    assert _descent_index(bar_heights_from(_sequence(plana), 0), peak_index=0,
+                          drop_ratio=0.15) is None

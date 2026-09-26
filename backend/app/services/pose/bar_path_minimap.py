@@ -15,6 +15,9 @@ from app.services.pose.bar_path_renderer import (
     COLOR_POOR,
 )
 
+
+PANEL_TITLE = "Bar Path"
+TITLE_COLOR = (230, 230, 230)
 PANEL_BACKGROUND = (30, 30, 30)
 PANEL_BORDER = (120, 120, 120)
 TRACE_BACKGROUND = (70, 70, 70)
@@ -32,6 +35,9 @@ def _default_palette() -> dict[PathQuality, tuple[int, int, int]]:
 class MinimapStyle:
     """Parámetros visuales del panel de trayectoria."""
 
+    title_scale: float = 0.4
+    title_thickness: int = 1
+    title_margin: int = 6
     width_ratio: float = 0.18
     margin_ratio: float = 0.02
     aspect_ratio: float = 1.6
@@ -66,6 +72,7 @@ class BarPathMinimapRenderer:
 
         panel = self._panel_rect(canvas.shape[1], canvas.shape[0])
         self._draw_panel_background(canvas, panel)
+        self._draw_title(canvas, panel)
         self._draw_trace(canvas, panel)
         self._draw_current_position(canvas, panel, pose.index)
         return canvas
@@ -168,3 +175,29 @@ class BarPathMinimapRenderer:
         half_span = max((max(xs) - min(xs)) / 2, (max(ys) - min(ys)) / 4)
 
         return center_x - half_span, center_x + half_span, min(ys), max(ys)
+
+    def _draw_title(self, canvas: np.ndarray, panel: tuple[int, int, int, int]) -> None:
+        """Escribe el rótulo del panel sobre su borde superior."""
+        x1, y1, x2, _ = panel
+        style = self._style
+
+        (text_width, text_height), _ = cv2.getTextSize(
+            PANEL_TITLE, cv2.FONT_HERSHEY_SIMPLEX, style.title_scale, style.title_thickness
+        )
+        origin_x = x1 + ((x2 - x1) - text_width) // 2
+        origin_y = y1 - style.title_margin
+
+        # Si el panel está pegado al borde superior, el rótulo se dibuja dentro.
+        if origin_y - text_height < 0:
+            origin_y = y1 + text_height + style.title_margin
+
+        cv2.putText(
+            canvas,
+            PANEL_TITLE,
+            (origin_x, origin_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            style.title_scale,
+            TITLE_COLOR,
+            style.title_thickness,
+            cv2.LINE_AA,
+        )

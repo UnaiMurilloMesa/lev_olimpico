@@ -6,6 +6,7 @@ from app.domain.sequence import PoseSequence
 from app.services.analysis.velocity_chart import MatplotlibVelocityChart
 from app.services.analysis_service import AnalysisService
 from app.services.pose.angle_renderer import AngleRenderer
+from app.services.pose.bar_path_minimap import BarPathMinimapRenderer
 from app.services.pose.bar_path_renderer import BarPathRenderer
 from app.services.pose.composite import CompositeFrameRenderer
 from app.services.pose.estimator import MediaPipePoseEstimator
@@ -18,10 +19,12 @@ from app.services.video.transcoder import FfmpegTranscoder
 
 def build_frame_renderer(sequence: PoseSequence) -> FrameRenderer:
     """Compone las capas de dibujo para una secuencia concreta."""
+    bar_path = extract_bar_path(sequence)
     return CompositeFrameRenderer(
-        BarPathRenderer(extract_bar_path(sequence)),
+        BarPathRenderer(bar_path),
         SkeletonRenderer(),
         AngleRenderer(),
+        BarPathMinimapRenderer(bar_path),
     )
 
 
