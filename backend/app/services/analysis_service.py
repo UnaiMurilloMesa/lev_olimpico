@@ -7,14 +7,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.domain.bar_path import extract_bar_path
-from app.services.pose.smoother import PoseSmoother
-from app.services.video.extractor import PoseExtractor
-from app.services.video.renderer import PoseVideoRenderer
-from app.services.video.transcoder import VideoTranscoder
 from app.domain.lift_detection import detect_lift_window
 from app.domain.lift_window import LiftWindow, slice_sequence
 from app.domain.sequence import PoseSequence
+from app.services.pose.smoother import PoseSmoother
+from app.services.video.extractor import PoseExtractor
 from app.services.video.metadata import VideoMetadata
+from app.services.video.renderer import PoseVideoRenderer
+from app.services.video.transcoder import VideoTranscoder
 
 logger = logging.getLogger(__name__)
 

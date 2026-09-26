@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from celery import Task
+
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.domain.job import JobStatus
@@ -21,7 +23,7 @@ def ping() -> str:
 
 
 @celery_app.task(name="tasks.analyze_lift", bind=True)
-def analyze_lift(self: Any, job_id: str, start_seconds: float = 0.0) -> dict[str, Any]:
+def analyze_lift(self: Task, job_id: str, start_seconds: float = 0.0) -> dict[str, Any]:
     """Ejecuta el análisis del vídeo asociado a un trabajo.
 
     Returns:
