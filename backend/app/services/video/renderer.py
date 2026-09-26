@@ -9,7 +9,7 @@ import cv2
 
 from app.domain.sequence import PoseSequence
 from app.services.pose.renderer import FrameRenderer
-from app.services.video.processor import (
+from app.services.video.metadata import (
     OUTPUT_FOURCC,
     VideoMetadata,
     VideoProcessingError,

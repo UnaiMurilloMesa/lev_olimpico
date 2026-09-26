@@ -6,9 +6,9 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.services.pose.estimator import PoseEstimator
-from app.services.pose.renderer import FrameRenderer
-from app.services.video.processor import VideoPoseProcessor
+from app.services.pose.smoother import PoseSmoother
+from app.services.video.extractor import PoseExtractor
+from app.services.video.renderer import PoseVideoRenderer
 from app.services.video.transcoder import VideoTranscoder
 
 logger = logging.getLogger(__name__)
@@ -29,16 +29,26 @@ class AnalysisResult:
 
 
 class AnalysisService:
-    """Coordina el análisis completo de un vídeo de levantamiento."""
+    """Coordina el análisis completo de un vídeo de levantamiento.
+
+    El proceso consta de tres fases: extracción de las poses, suavizado
+    temporal de las trayectorias y renderizado del vídeo con la pose ya
+    suavizada. El suavizado necesita la secuencia completa, incluidos los
+    fotogramas posteriores a cada instante, de ahí que no pueda hacerse en
+    una única pasada sobre el vídeo.
+    """
 
     def __init__(
         self,
-        estimator: PoseEstimator,
-        renderer: FrameRenderer,
+        extractor: PoseExtractor,
+        smoother: PoseSmoother,
+        video_renderer: PoseVideoRenderer,
         transcoder: VideoTranscoder,
     ) -> None:
         """Crea el servicio con sus colaboradores."""
-        self._processor = VideoPoseProcessor(estimator, renderer)
+        self._extractor = extractor
+        self._smoother = smoother
+        self._video_renderer = video_renderer
         self._transcoder = transcoder
 
     def analyze(self, source: Path, workspace: Path) -> AnalysisResult:
@@ -56,14 +66,16 @@ class AnalysisService:
         final_output = workspace / FINAL_OUTPUT_NAME
 
         logger.info("Iniciando análisis de %s", source.name)
-        processing = self._processor.process(source, raw_output)
+        sequence, metadata = self._extractor.extract(source)
+        smoothed = self._smoother.smooth(sequence)
+        self._video_renderer.render(source, raw_output, smoothed, metadata)
         self._transcoder.to_android_compatible(raw_output, final_output)
         raw_output.unlink(missing_ok=True)
 
         return AnalysisResult(
             video_path=final_output,
-            processed_frames=processing.processed_frames,
-            detected_frames=processing.detected_frames,
-            detection_ratio=processing.detection_ratio,
-            duration_seconds=processing.metadata.duration_seconds,
+            processed_frames=len(smoothed),
+            detected_frames=smoothed.detected_count,
+            detection_ratio=smoothed.detection_ratio,
+            duration_seconds=metadata.duration_seconds,
         )

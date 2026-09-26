@@ -10,6 +10,9 @@ from app.core.config import get_settings
 from app.services.analysis_service import AnalysisService
 from app.services.pose.estimator import MediaPipePoseEstimator
 from app.services.pose.renderer import SkeletonRenderer
+from app.services.pose.smoother import SavitzkyGolaySmoother
+from app.services.video.extractor import PoseExtractor
+from app.services.video.renderer import PoseVideoRenderer
 from app.services.video.transcoder import FfmpegTranscoder
 
 pytestmark = pytest.mark.slow
@@ -46,7 +49,12 @@ def test_el_pipeline_completo_genera_un_video_reproducible(
     synthetic_video: Path, tmp_path: Path, settings
 ) -> None:
     with MediaPipePoseEstimator(settings.pose_model_path) as estimator:
-        service = AnalysisService(estimator, SkeletonRenderer(), FfmpegTranscoder())
+        service = AnalysisService(
+            extractor=PoseExtractor(estimator),
+            smoother=SavitzkyGolaySmoother(),
+            video_renderer=PoseVideoRenderer(SkeletonRenderer()),
+            transcoder=FfmpegTranscoder(),
+        )
         result = service.analyze(synthetic_video, tmp_path / "job-integracion")
 
     assert result.processed_frames == FRAMES

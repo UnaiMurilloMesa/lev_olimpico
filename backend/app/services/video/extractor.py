@@ -10,7 +10,7 @@ import cv2
 from app.domain.landmarks import PoseFrame
 from app.domain.sequence import PoseSequence
 from app.services.pose.estimator import PoseEstimator
-from app.services.video.processor import (
+from app.services.video.metadata import (
     VideoMetadata,
     VideoProcessingError,
     frame_step_for,
