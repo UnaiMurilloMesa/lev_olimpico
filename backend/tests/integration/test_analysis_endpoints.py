@@ -47,6 +47,24 @@ def client(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Iterator[Test
         yield test_client
 
 
+def _resumen(**overrides: object) -> dict[str, object]:
+    """Resumen de análisis completo, con los campos que se quieran sobrescribir."""
+    base = {
+        "job_id": "abc",
+        "video_name": "analysis.mp4",
+        "processed_frames": 120,
+        "detected_frames": 118,
+        "detection_ratio": 0.9833,
+        "duration_seconds": 4.0,
+        "bar_path_deviation": 0.12,
+        "bar_path_quality": "acceptable",
+        "lift_start_seconds": 1.5,
+        "lift_end_seconds": 4.2,
+        "lift_duration_seconds": 2.7,
+    }
+    return base | overrides
+
+
 def _upload(client: TestClient, filename: str = "snatch.mp4", content: bytes = b"x" * 2048):
     return client.post(
         "/api/v1/analyses",
@@ -95,18 +113,8 @@ def test_consultar_un_trabajo_en_proceso(client: TestClient) -> None:
 
 
 def test_consultar_un_trabajo_completado_devuelve_el_resumen(client: TestClient) -> None:
-    resumen = {
-        "job_id": "abc",
-        "video_name": "analysis.mp4",
-        "processed_frames": 120,
-        "detected_frames": 118,
-        "detection_ratio": 0.9833,
-        "duration_seconds": 4.0,
-        "bar_path_deviation": 0.12,
-        "bar_path_quality": "acceptable",
-    }
     client.app.dependency_overrides[get_job_registry] = lambda: FakeRegistry(
-        JobState(JobStatus.COMPLETED, result=resumen)
+        JobState(JobStatus.COMPLETED, result=_resumen())
     )
 
     response = client.get("/api/v1/analyses/abc")
@@ -142,3 +150,13 @@ def test_eliminar_un_analisis_borra_su_espacio_de_trabajo(
 
     assert response.status_code == 204
     assert not (settings.storage_dir / job_id).exists()
+
+
+def test_acepta_el_instante_de_inicio(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/analyses",
+        files={"video": ("snatch.mp4", b"x" * 2048, "video/mp4")},
+        data={"lift_type": "snatch", "start_seconds": "1.5"},
+    )
+
+    assert response.status_code == 202

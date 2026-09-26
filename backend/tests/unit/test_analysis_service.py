@@ -60,6 +60,7 @@ class FakeVideoRenderer:
         destination: Path,
         sequence: PoseSequence,
         metadata: VideoMetadata,
+        lift: PoseSequence | None = None,
     ) -> Path:
         self.sequences.append(sequence)
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -158,3 +159,13 @@ def test_incluye_la_valoracion_del_bar_path(sample_video: Path, tmp_path: Path) 
 
     assert result.bar_path_quality in {"excellent", "acceptable", "poor"}
     assert result.bar_path_deviation >= 0.0
+
+def test_acota_el_levantamiento_desde_el_instante_indicado(
+    sample_video: Path, tmp_path: Path
+) -> None:
+    result = _service(FakeTranscoder()).analyze(
+        sample_video, tmp_path / "job-1", start_seconds=0.1
+    )
+
+    assert result.lift_start_seconds == pytest.approx(0.1, abs=0.05)
+    assert result.lift_end_seconds >= result.lift_start_seconds

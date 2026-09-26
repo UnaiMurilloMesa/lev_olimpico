@@ -36,6 +36,7 @@ def create_analysis(
     validator: UploadValidatorDep,
     video: UploadFile = File(description="Vídeo del levantamiento."),
     lift_type: LiftType = Form(default=LiftType.SNATCH),
+    start_seconds: float = Form(default=0.0, ge=0.0),
 ) -> AnalysisCreatedResponse:
     """Encola el análisis de un vídeo de levantamiento.
 
@@ -57,7 +58,7 @@ def create_analysis(
     with destination.open("wb") as buffer:
         shutil.copyfileobj(video.file, buffer)
 
-    analyze_lift.apply_async(args=[job.job_id], task_id=job.job_id)
+    analyze_lift.apply_async(args=[job.job_id, start_seconds], task_id=job.job_id)
     logger.info("Trabajo %s encolado (%s)", job.job_id, lift_type.value)
 
     return AnalysisCreatedResponse(

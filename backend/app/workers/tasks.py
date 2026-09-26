@@ -21,7 +21,7 @@ def ping() -> str:
 
 
 @celery_app.task(name="tasks.analyze_lift", bind=True)
-def analyze_lift(self: Any, job_id: str) -> dict[str, Any]:  # noqa: ANN401
+def analyze_lift(self: Any, job_id: str, start_seconds: float = 0.0) -> dict[str, Any]:
     """Ejecuta el análisis del vídeo asociado a un trabajo.
 
     Returns:
@@ -41,7 +41,7 @@ def analyze_lift(self: Any, job_id: str) -> dict[str, Any]:  # noqa: ANN401
     logger.info("Analizando el trabajo %s", job_id)
 
     service = build_analysis_service(settings)
-    result = service.analyze(source, workspace.path)
+    result = service.analyze(source, workspace.path, start_seconds)
     source.unlink(missing_ok=True)
 
     return {
@@ -53,4 +53,7 @@ def analyze_lift(self: Any, job_id: str) -> dict[str, Any]:  # noqa: ANN401
         "duration_seconds": round(result.duration_seconds, 2),
         "bar_path_deviation": result.bar_path_deviation,
         "bar_path_quality": result.bar_path_quality,
+        "lift_start_seconds": result.lift_start_seconds,
+        "lift_end_seconds": result.lift_end_seconds,
+        "lift_duration_seconds": result.lift_duration_seconds,
     }

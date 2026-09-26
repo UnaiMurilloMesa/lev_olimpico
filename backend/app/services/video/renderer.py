@@ -31,7 +31,12 @@ class PoseVideoRenderer:
         self._renderer_factory = renderer_factory
 
     def render(
-        self, source: Path, destination: Path, sequence: PoseSequence, metadata: VideoMetadata
+        self,
+        source: Path,
+        destination: Path,
+        sequence: PoseSequence,
+        metadata: VideoMetadata,
+        lift: PoseSequence | None = None,
     ) -> Path:
         """Escribe en `destination` el vídeo con la pose dibujada.
 
@@ -45,7 +50,7 @@ class PoseVideoRenderer:
         try:
             writer = self._open_writer(destination, metadata)
             try:
-                self._write_frames(capture, writer, sequence)
+                self._write_frames(capture, writer, sequence, lift or sequence)
             finally:
                 writer.release()
         finally:
@@ -59,9 +64,10 @@ class PoseVideoRenderer:
         capture: cv2.VideoCapture,
         writer: cv2.VideoWriter,
         sequence: PoseSequence,
+        lift: PoseSequence,
     ) -> None:
         """Dibuja cada pose sobre su fotograma correspondiente."""
-        renderer = self._renderer_factory(sequence)
+        renderer = self._renderer_factory(lift)
         step = frame_step_for(sanitize_fps(capture.get(cv2.CAP_PROP_FPS)))
         read_index = 0
         written = 0

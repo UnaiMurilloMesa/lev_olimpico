@@ -11,6 +11,10 @@ from app.services.pose.smoother import PoseSmoother
 from app.services.video.extractor import PoseExtractor
 from app.services.video.renderer import PoseVideoRenderer
 from app.services.video.transcoder import VideoTranscoder
+from app.domain.lift_detection import detect_lift_window
+from app.domain.lift_window import LiftWindow, slice_sequence
+from app.domain.sequence import PoseSequence
+from app.services.video.metadata import VideoMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,9 @@ class AnalysisResult:
     duration_seconds: float
     bar_path_deviation: float
     bar_path_quality: str
+    lift_start_seconds: float
+    lift_end_seconds: float
+    lift_duration_seconds: float
 
 
 class AnalysisService:
@@ -54,12 +61,15 @@ class AnalysisService:
         self._video_renderer = video_renderer
         self._transcoder = transcoder
 
-    def analyze(self, source: Path, workspace: Path) -> AnalysisResult:
+    def analyze(
+        self, source: Path, workspace: Path, start_seconds: float = 0.0
+    ) -> AnalysisResult:
         """Analiza un vídeo y deja el resultado listo para su descarga.
 
         Args:
             source: Vídeo original subido por el usuario.
             workspace: Directorio de trabajo exclusivo de este análisis.
+            start_seconds: Instante en que la barra despega del suelo.
 
         Returns:
             El resumen del análisis, con la ruta del vídeo final.
@@ -68,20 +78,44 @@ class AnalysisService:
         raw_output = workspace / f"{source.stem}{RAW_OUTPUT_SUFFIX}"
         final_output = workspace / FINAL_OUTPUT_NAME
 
-        logger.info("Iniciando análisis de %s", source.name)
+        logger.info("Iniciando análisis de %s desde %.2fs", source.name, start_seconds)
         sequence, metadata = self._extractor.extract(source)
         smoothed = self._smoother.smooth(sequence)
-        self._video_renderer.render(source, raw_output, smoothed, metadata)
+
+        window = detect_lift_window(smoothed, start_seconds)
+        lift = slice_sequence(smoothed, window)
+        logger.info(
+            "Levantamiento acotado entre los fotogramas %d y %d (%.2fs)",
+            window.start_index,
+            window.end_index,
+            window.duration_seconds(smoothed.fps),
+        )
+
+        self._video_renderer.render(source, raw_output, smoothed, metadata, lift)
         self._transcoder.to_android_compatible(raw_output, final_output)
         raw_output.unlink(missing_ok=True)
-        bar_path = extract_bar_path(smoothed)
 
+        return self._build_result(final_output, metadata, smoothed, lift, window)
+
+    def _build_result(
+        self,
+        video_path: Path,
+        metadata: VideoMetadata,
+        full: PoseSequence,
+        lift: PoseSequence,
+        window: LiftWindow,
+    ) -> AnalysisResult:
+        """Compone el resumen del análisis a partir del tramo acotado."""
+        bar_path = extract_bar_path(lift)
         return AnalysisResult(
-            video_path=final_output,
-            processed_frames=len(smoothed),
-            detected_frames=smoothed.detected_count,
-            detection_ratio=smoothed.detection_ratio,
+            video_path=video_path,
+            processed_frames=len(full),
+            detected_frames=lift.detected_count,
+            detection_ratio=lift.detection_ratio,
             duration_seconds=metadata.duration_seconds,
             bar_path_deviation=round(bar_path.deviation_ratio, 4),
             bar_path_quality=bar_path.quality.value,
+            lift_start_seconds=round(window.start_index / full.fps, 2),
+            lift_end_seconds=round(window.end_index / full.fps, 2),
+            lift_duration_seconds=round(window.duration_seconds(full.fps), 2),
         )

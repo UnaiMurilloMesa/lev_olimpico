@@ -23,6 +23,9 @@ class AnalysisSummary(BaseModel):
     duration_seconds: float = Field(description="Duración del vídeo analizado.")
     bar_path_deviation: float = Field(description="Desviación horizontal relativa de la barra.")
     bar_path_quality: str = Field(description="Valoración de la verticalidad de la trayectoria.")
+    lift_start_seconds: float = Field(description="Instante de despegue de la barra.")
+    lift_end_seconds: float = Field(description="Instante en que termina el levantamiento.")
+    lift_duration_seconds: float = Field(description="Duración del levantamiento acotado.")
 
 
 class AnalysisStatusResponse(BaseModel):
