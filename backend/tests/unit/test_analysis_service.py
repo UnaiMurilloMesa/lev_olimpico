@@ -152,3 +152,9 @@ def test_crea_el_directorio_de_trabajo_si_no_existe(sample_video: Path, tmp_path
     _service(FakeTranscoder()).analyze(sample_video, workspace)
 
     assert workspace.is_dir()
+
+def test_incluye_la_valoracion_del_bar_path(sample_video: Path, tmp_path: Path) -> None:
+    result = _service(FakeTranscoder()).analyze(sample_video, tmp_path / "job-1")
+
+    assert result.bar_path_quality in {"excellent", "acceptable", "poor"}
+    assert result.bar_path_deviation >= 0.0

@@ -14,6 +14,7 @@ from app.services.pose.smoother import SavitzkyGolaySmoother
 from app.services.video.extractor import PoseExtractor
 from app.services.video.renderer import PoseVideoRenderer
 from app.services.video.transcoder import FfmpegTranscoder
+from app.services.factory import build_frame_renderer
 
 pytestmark = pytest.mark.slow
 
@@ -52,7 +53,7 @@ def test_el_pipeline_completo_genera_un_video_reproducible(
         service = AnalysisService(
             extractor=PoseExtractor(estimator),
             smoother=SavitzkyGolaySmoother(),
-            video_renderer=PoseVideoRenderer(SkeletonRenderer()),
+            video_renderer=PoseVideoRenderer(build_frame_renderer),
             transcoder=FfmpegTranscoder(),
         )
         result = service.analyze(synthetic_video, tmp_path / "job-integracion")

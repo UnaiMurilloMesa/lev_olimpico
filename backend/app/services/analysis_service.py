@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.domain.bar_path import extract_bar_path
 from app.services.pose.smoother import PoseSmoother
 from app.services.video.extractor import PoseExtractor
 from app.services.video.renderer import PoseVideoRenderer
@@ -26,6 +27,8 @@ class AnalysisResult:
     detected_frames: int
     detection_ratio: float
     duration_seconds: float
+    bar_path_deviation: float
+    bar_path_quality: str
 
 
 class AnalysisService:
@@ -71,6 +74,7 @@ class AnalysisService:
         self._video_renderer.render(source, raw_output, smoothed, metadata)
         self._transcoder.to_android_compatible(raw_output, final_output)
         raw_output.unlink(missing_ok=True)
+        bar_path = extract_bar_path(smoothed)
 
         return AnalysisResult(
             video_path=final_output,
@@ -78,4 +82,6 @@ class AnalysisService:
             detected_frames=smoothed.detected_count,
             detection_ratio=smoothed.detection_ratio,
             duration_seconds=metadata.duration_seconds,
+            bar_path_deviation=round(bar_path.deviation_ratio, 4),
+            bar_path_quality=bar_path.quality.value,
         )

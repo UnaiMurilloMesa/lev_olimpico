@@ -21,6 +21,8 @@ class AnalysisSummary(BaseModel):
     detected_frames: int = Field(description="Fotogramas con pose detectada.")
     detection_ratio: float = Field(description="Proporción de fotogramas con pose detectada.")
     duration_seconds: float = Field(description="Duración del vídeo analizado.")
+    bar_path_deviation: float = Field(description="Desviación horizontal relativa de la barra.")
+    bar_path_quality: str = Field(description="Valoración de la verticalidad de la trayectoria.")
 
 
 class AnalysisStatusResponse(BaseModel):

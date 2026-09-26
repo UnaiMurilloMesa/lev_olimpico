@@ -46,7 +46,7 @@ def create_analysis(
         extension = validator.validate(video.filename, video.size or 0)
     except InvalidUploadError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)
         ) from error
 
     job = AnalysisJob(lift_type=lift_type)

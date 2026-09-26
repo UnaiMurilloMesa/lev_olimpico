@@ -98,7 +98,7 @@ def test_el_renderizado_dibuja_la_secuencia_suministrada(
     sequence, metadata = PoseExtractor(FakeEstimator()).extract(video_30fps)
     spy = SpyRenderer()
 
-    PoseVideoRenderer(spy).render(video_30fps, tmp_path / "salida.mp4", sequence, metadata)
+    PoseVideoRenderer(lambda _: spy).render(video_30fps, tmp_path / "salida.mp4", sequence, metadata)
 
     assert len(spy.poses) == len(sequence)
 
@@ -107,7 +107,7 @@ def test_el_renderizado_genera_el_fichero(video_30fps: Path, tmp_path: Path) -> 
     sequence, metadata = PoseExtractor(FakeEstimator()).extract(video_30fps)
     destino = tmp_path / "sub" / "salida.mp4"
 
-    PoseVideoRenderer(SpyRenderer()).render(video_30fps, destino, sequence, metadata)
+    PoseVideoRenderer(lambda _: SpyRenderer()).render(video_30fps, destino, sequence, metadata)
 
     assert destino.is_file()
     assert destino.stat().st_size > 0
@@ -120,7 +120,7 @@ def test_las_dos_pasadas_recorren_los_mismos_fotogramas(
     sequence, metadata = PoseExtractor(FakeEstimator()).extract(video_120fps)
     spy = SpyRenderer()
 
-    PoseVideoRenderer(spy).render(video_120fps, tmp_path / "salida.mp4", sequence, metadata)
+    PoseVideoRenderer(lambda _: spy).render(video_120fps, tmp_path / "salida.mp4", sequence, metadata)
 
     assert [pose.index for pose in spy.poses] == [frame.index for frame in sequence.frames]
 
@@ -131,6 +131,6 @@ def test_renderizar_con_una_secuencia_vacia_no_falla(
     sequence, metadata = PoseExtractor(FakeEstimator()).extract(video_30fps)
     vacia = PoseSequence(frames=(), fps=metadata.fps)
 
-    PoseVideoRenderer(SpyRenderer()).render(
+    PoseVideoRenderer(lambda _: SpyRenderer()).render(
         video_30fps, tmp_path / "salida.mp4", vacia, metadata
     )

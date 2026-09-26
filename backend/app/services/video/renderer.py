@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 
 import cv2
@@ -19,13 +20,15 @@ from app.services.video.metadata import (
 
 logger = logging.getLogger(__name__)
 
+RendererFactory = Callable[[PoseSequence], FrameRenderer]
+
 
 class PoseVideoRenderer:
     """Vuelve a recorrer el vídeo y dibuja sobre él la secuencia suavizada."""
 
-    def __init__(self, renderer: FrameRenderer) -> None:
-        """Crea el renderizador de vídeo sobre el dibujante indicado."""
-        self._renderer = renderer
+    def __init__(self, renderer_factory: RendererFactory) -> None:
+        """Crea el renderizador de vídeo sobre una factoria de dibujantes."""
+        self._renderer_factory = renderer_factory
 
     def render(
         self, source: Path, destination: Path, sequence: PoseSequence, metadata: VideoMetadata
@@ -52,9 +55,13 @@ class PoseVideoRenderer:
         return destination
 
     def _write_frames(
-        self, capture: cv2.VideoCapture, writer: cv2.VideoWriter, sequence: PoseSequence
+        self,
+        capture: cv2.VideoCapture,
+        writer: cv2.VideoWriter,
+        sequence: PoseSequence,
     ) -> None:
         """Dibuja cada pose sobre su fotograma correspondiente."""
+        renderer = self._renderer_factory(sequence)
         step = frame_step_for(sanitize_fps(capture.get(cv2.CAP_PROP_FPS)))
         read_index = 0
         written = 0
@@ -65,7 +72,7 @@ class PoseVideoRenderer:
                 break
 
             if read_index % step == 0:
-                writer.write(self._renderer.render(frame, sequence.frames[written]))
+                writer.write(renderer.render(frame, sequence.frames[written]))
                 written += 1
 
             read_index += 1

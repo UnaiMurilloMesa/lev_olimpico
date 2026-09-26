@@ -102,6 +102,8 @@ def test_consultar_un_trabajo_completado_devuelve_el_resumen(client: TestClient)
         "detected_frames": 118,
         "detection_ratio": 0.9833,
         "duration_seconds": 4.0,
+        "bar_path_deviation": 0.12,
+        "bar_path_quality": "acceptable",
     }
     client.app.dependency_overrides[get_job_registry] = lambda: FakeRegistry(
         JobState(JobStatus.COMPLETED, result=resumen)

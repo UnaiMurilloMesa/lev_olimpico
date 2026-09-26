@@ -51,4 +51,6 @@ def analyze_lift(self: Any, job_id: str) -> dict[str, Any]:  # noqa: ANN401
         "detected_frames": result.detected_frames,
         "detection_ratio": round(result.detection_ratio, 4),
         "duration_seconds": round(result.duration_seconds, 2),
+        "bar_path_deviation": result.bar_path_deviation,
+        "bar_path_quality": result.bar_path_quality,
     }
