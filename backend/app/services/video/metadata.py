@@ -4,13 +4,8 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 
-import cv2
 import numpy as np
-
-from app.services.pose.estimator import PoseEstimator
-from app.services.pose.renderer import FrameRenderer
 
 logger = logging.getLogger(__name__)
 
