@@ -2,12 +2,15 @@ package com.tfg.halteroanalyzer.ui.analysis
 
 import com.tfg.halteroanalyzer.domain.AnalysisException
 import com.tfg.halteroanalyzer.domain.AnalysisRepository
+import com.tfg.halteroanalyzer.domain.AnalysisRequest
 import com.tfg.halteroanalyzer.domain.AnalysisState
 import com.tfg.halteroanalyzer.domain.AnalysisStatusPoller
+import com.tfg.halteroanalyzer.domain.AnalysisSummary
 import com.tfg.halteroanalyzer.domain.JobStatus
-import com.tfg.halteroanalyzer.domain.LiftType
+import com.tfg.halteroanalyzer.domain.PathQuality
 import com.tfg.halteroanalyzer.domain.VideoSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -16,6 +19,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -25,8 +29,6 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AnalysisViewModelTest {
@@ -43,19 +45,45 @@ class AnalysisViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
+    // --- Estado inicial y preparación ---
+
     @Test
     fun `al inicio la pantalla esta en reposo`() = runTest(dispatcher) {
         assertTrue(viewModel(FakeRepository()).uiState.value is AnalysisUiState.Idle)
     }
 
     @Test
-    fun `seleccionar un video actualiza el estado`() = runTest(dispatcher) {
+    fun `seleccionar un video pasa a la pantalla de preparacion`() = runTest(dispatcher) {
         val vm = viewModel(FakeRepository())
 
         vm.onVideoSelected(uri)
 
-        assertTrue(vm.uiState.value is AnalysisUiState.VideoSelected)
+        val state = vm.uiState.value
+        assertTrue(state is AnalysisUiState.Preparing)
+        assertEquals(uri, (state as AnalysisUiState.Preparing).videoUri)
     }
+
+    @Test
+    fun `registra la duracion del video`() = runTest(dispatcher) {
+        val vm = viewModel(FakeRepository())
+        vm.onVideoSelected(uri)
+
+        vm.onVideoDurationKnown(7.5)
+
+        val state = vm.uiState.value as AnalysisUiState.Preparing
+        assertEquals(7.5, state.videoDurationSeconds, 0.001)
+    }
+
+    @Test
+    fun `un video sin duracion conocida no permite analizar`() = runTest(dispatcher) {
+        val vm = viewModel(FakeRepository())
+
+        vm.onVideoSelected(uri)
+
+        assertFalse((vm.uiState.value as AnalysisUiState.Preparing).canStart)
+    }
+
+    // --- Validación previa al envío ---
 
     @Test
     fun `sin video seleccionado no se envia nada`() = runTest(dispatcher) {
@@ -69,13 +97,56 @@ class AnalysisViewModelTest {
     }
 
     @Test
+    fun `no permite analizar con una estatura invalida`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val vm = viewModel(repository)
+        prepare(vm)
+        vm.onHeightChanged(300)
+
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        assertEquals(0, repository.submitCalls)
+    }
+
+    @Test
+    fun `no permite analizar si el inicio supera la duracion`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val vm = viewModel(repository)
+        prepare(vm, duration = 3.0)
+        vm.onStartSecondsChanged(10.0)
+
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        assertEquals(0, repository.submitCalls)
+    }
+
+    // --- Envío y seguimiento ---
+
+    @Test
+    fun `envia el instante y la estatura elegidos`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val vm = viewModel(repository)
+        prepare(vm)
+        vm.onStartSecondsChanged(1.5)
+        vm.onHeightChanged(182)
+
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        assertEquals(1.5, repository.lastRequest!!.startSeconds, 0.001)
+        assertEquals(182, repository.lastRequest!!.heightCm)
+    }
+
+    @Test
     fun `un analisis correcto termina con el video descargado`() = runTest(dispatcher) {
         val repository = FakeRepository(
             states = listOf(JobStatus.PROCESSING, JobStatus.COMPLETED),
         )
         val vm = viewModel(repository)
+        prepare(vm)
 
-        vm.onVideoSelected(uri)
         vm.startAnalysis()
         advanceUntilIdle()
 
@@ -86,13 +157,51 @@ class AnalysisViewModelTest {
     }
 
     @Test
+    fun `expone el resumen del analisis`() = runTest(dispatcher) {
+        val vm = viewModel(FakeRepository())
+        prepare(vm)
+
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        val summary = (vm.uiState.value as AnalysisUiState.Completed).summary
+        assertEquals(1.8, summary!!.peakVelocityMs, 0.001)
+        assertEquals(PathQuality.ACCEPTABLE, summary.barPathQuality)
+    }
+
+    @Test
+    fun `descarga la grafica cuando el analisis la incluye`() = runTest(dispatcher) {
+        val vm = viewModel(FakeRepository(hasChart = true))
+        prepare(vm)
+
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value as AnalysisUiState.Completed
+        assertTrue(state.chart!!.exists())
+    }
+
+    @Test
+    fun `no descarga grafica si el analisis no la genero`() = runTest(dispatcher) {
+        val vm = viewModel(FakeRepository(hasChart = false))
+        prepare(vm)
+
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        assertNull((vm.uiState.value as AnalysisUiState.Completed).chart)
+    }
+
+    // --- Errores ---
+
+    @Test
     fun `un fallo al subir muestra el mensaje del servidor`() = runTest(dispatcher) {
         val repository = FakeRepository(
             submitResult = Result.failure(AnalysisException.Server(422, "Extensión no admitida.")),
         )
         val vm = viewModel(repository)
+        prepare(vm)
 
-        vm.onVideoSelected(uri)
         vm.startAnalysis()
         advanceUntilIdle()
 
@@ -108,39 +217,50 @@ class AnalysisViewModelTest {
             failureDetail = "Vídeo corrupto",
         )
         val vm = viewModel(repository)
+        prepare(vm)
 
-        vm.onVideoSelected(uri)
         vm.startAnalysis()
         advanceUntilIdle()
 
-        assertEquals(
-            "Vídeo corrupto",
-            (vm.uiState.value as AnalysisUiState.Failed).message,
-        )
+        assertEquals("Vídeo corrupto", (vm.uiState.value as AnalysisUiState.Failed).message)
     }
 
+    // --- Reinicio ---
+
     @Test
-    fun `reiniciar borra el video local y avisa al servidor`() = runTest(dispatcher) {
-        val repository = FakeRepository(states = listOf(JobStatus.COMPLETED))
+    fun `reiniciar borra los ficheros locales y avisa al servidor`() = runTest(dispatcher) {
+        val repository = FakeRepository()
         val vm = viewModel(repository)
-        vm.onVideoSelected(uri)
+        prepare(vm)
         vm.startAnalysis()
         advanceUntilIdle()
-        val descargado = (vm.uiState.value as AnalysisUiState.Completed).video
+        val completado = vm.uiState.value as AnalysisUiState.Completed
 
         vm.reset()
         advanceUntilIdle()
 
         assertTrue(vm.uiState.value is AnalysisUiState.Idle)
-        assertFalse(descargado.exists())
+        assertFalse(completado.video.exists())
+        assertFalse(completado.chart!!.exists())
         assertEquals(listOf("trabajo-1"), repository.deleted)
+    }
+
+    // --- Utilidades ---
+
+    /** Deja el ViewModel listo para lanzar un análisis. */
+    private fun prepare(vm: AnalysisViewModel, duration: Double = 10.0) {
+        vm.onVideoSelected(uri)
+        vm.onVideoDurationKnown(duration)
     }
 
     private fun viewModel(repository: FakeRepository) = AnalysisViewModel(
         repository = repository,
         poller = AnalysisStatusPoller(repository, pollInterval = 10.milliseconds),
         videoSourceProvider = { FakeVideoSource() },
-        resultFileProvider = { jobId -> tempFolder.newFile("$jobId.mp4") },
+        resultFileProvider = object : ResultFileProvider {
+            override fun videoFor(jobId: String): File = tempFolder.newFile("$jobId.mp4")
+            override fun chartFor(jobId: String): File = tempFolder.newFile("$jobId.png")
+        },
     )
 
     private class FakeVideoSource : VideoSource {
@@ -154,15 +274,22 @@ class AnalysisViewModelTest {
         private val submitResult: Result<String> = Result.success("trabajo-1"),
         private val states: List<JobStatus> = listOf(JobStatus.COMPLETED),
         private val failureDetail: String? = null,
+        private val hasChart: Boolean = true,
     ) : AnalysisRepository {
 
         var submitCalls = 0
             private set
+        var lastRequest: AnalysisRequest? = null
+            private set
         val deleted = mutableListOf<String>()
         private var stateIndex = 0
 
-        override suspend fun submit(video: VideoSource, liftType: LiftType): Result<String> {
+        override suspend fun submit(
+            video: VideoSource,
+            request: AnalysisRequest,
+        ): Result<String> {
             submitCalls++
+            lastRequest = request
             return submitResult
         }
 
@@ -170,7 +297,12 @@ class AnalysisViewModelTest {
             val status = states[stateIndex.coerceAtMost(states.lastIndex)]
             stateIndex++
             return Result.success(
-                AnalysisState(jobId = jobId, status = status, detail = failureDetail),
+                AnalysisState(
+                    jobId = jobId,
+                    status = status,
+                    detail = failureDetail,
+                    summary = if (status == JobStatus.COMPLETED) summary() else null,
+                ),
             )
         }
 
@@ -179,9 +311,30 @@ class AnalysisViewModelTest {
             return Result.success(destination)
         }
 
+        override suspend fun downloadChart(jobId: String, destination: File): Result<File> {
+            destination.writeBytes(byteArrayOf(4, 5))
+            return Result.success(destination)
+        }
+
         override suspend fun delete(jobId: String): Result<Unit> {
             deleted.add(jobId)
             return Result.success(Unit)
         }
+
+        private fun summary() = AnalysisSummary(
+            videoName = "analysis.mp4",
+            processedFrames = 120,
+            detectedFrames = 118,
+            detectionRatio = 0.98,
+            durationSeconds = 4.0,
+            barPathDeviation = 0.12,
+            barPathQuality = PathQuality.ACCEPTABLE,
+            liftStartSeconds = 1.0,
+            liftEndSeconds = 3.5,
+            liftDurationSeconds = 2.5,
+            peakVelocityMs = 1.8,
+            peakVelocityTime = 0.6,
+            hasVelocityChart = hasChart,
+        )
     }
 }

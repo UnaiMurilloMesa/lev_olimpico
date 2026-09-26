@@ -112,3 +112,34 @@ def test_ante_alturas_iguales_se_toma_la_primera() -> None:
     alturas = bar_heights_from(_sequence([0.9, 0.5, 0.2, 0.2, 0.2]), start_index=0)
 
     assert alturas.highest_index() == 2
+
+
+def test_termina_cuando_la_barra_se_suelta() -> None:
+    """Tras mantenerla arriba, la caída marca el final del levantamiento."""
+    subida = [0.9 - 0.03 * paso for paso in range(20)]
+    # Oscilación que supera el umbral de estabilidad, seguida de la caída.
+    sostenida = [subida[-1] + 0.02 * (1 if i % 2 else -1) for i in range(20)]
+    caida = [subida[-1] + 0.1 * paso for paso in range(15)]
+
+    final = detect_lift_end(_sequence(subida + sostenida + caida), start_index=0)
+
+    assert final < 45
+
+
+def test_una_oscilacion_leve_no_cuenta_como_caida() -> None:
+    subida = [0.9 - 0.03 * paso for paso in range(20)]
+    leve = [subida[-1] + 0.005 * (1 if i % 2 else -1) for i in range(20)]
+
+    final = detect_lift_end(_sequence(subida + leve), start_index=0)
+
+    assert final >= 19
+
+
+def test_sin_recorrido_vertical_no_se_detecta_caida() -> None:
+    """Una barra que nunca sube no debe terminar por criterio de descenso."""
+    plana = [0.5] * 40
+    config = LiftDetectionConfig(max_lift_ms=500)
+
+    final = detect_lift_end(_sequence(plana), start_index=0, config=config)
+
+    assert final == 15

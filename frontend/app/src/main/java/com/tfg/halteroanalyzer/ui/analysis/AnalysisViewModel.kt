@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.tfg.halteroanalyzer.domain.AnalysisRepository
+import com.tfg.halteroanalyzer.domain.AnalysisRequest
 import com.tfg.halteroanalyzer.domain.AnalysisState
 import com.tfg.halteroanalyzer.domain.AnalysisStatusPoller
 import com.tfg.halteroanalyzer.domain.JobStatus
-import com.tfg.halteroanalyzer.domain.LiftType
 import com.tfg.halteroanalyzer.domain.VideoSource
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,12 +16,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 
-/** Crea el fichero local donde se guarda el vídeo analizado de un trabajo. */
-fun interface ResultFileProvider {
-    fun fileFor(jobId: String): File
+/** Crea los ficheros locales donde se guardan los artefactos de un trabajo. */
+interface ResultFileProvider {
+    fun videoFor(jobId: String): File
+    fun chartFor(jobId: String): File
 }
 
-/** Coordina la selección, envío y seguimiento de un análisis. */
+/** Coordina la selección, preparación, envío y seguimiento de un análisis. */
 class AnalysisViewModel(
     private val repository: AnalysisRepository,
     private val poller: AnalysisStatusPoller,
@@ -34,21 +35,37 @@ class AnalysisViewModel(
 
     private var activeJob: Job? = null
 
-    /** Registra el vídeo elegido por el usuario en la galería. */
+    /** Registra el vídeo elegido y pasa a la pantalla de preparación. */
     fun onVideoSelected(videoUri: String) {
-        _uiState.value = AnalysisUiState.VideoSelected(videoUri)
+        _uiState.value = AnalysisUiState.Preparing(videoUri = videoUri)
     }
 
-    /** Envía el vídeo seleccionado y sigue el análisis hasta su finalización. */
-    fun startAnalysis(liftType: LiftType = LiftType.SNATCH) {
-        val selected = _uiState.value as? AnalysisUiState.VideoSelected ?: return
+    /** Guarda la duración del vídeo, conocida al prepararse el reproductor. */
+    fun onVideoDurationKnown(durationSeconds: Double) {
+        updatePreparing { it.copy(videoDurationSeconds = durationSeconds) }
+    }
+
+    /** Actualiza el instante en que la barra despega del suelo. */
+    fun onStartSecondsChanged(seconds: Double) {
+        updateRequest { it.copy(startSeconds = seconds) }
+    }
+
+    /** Actualiza la estatura del levantador, en centímetros. */
+    fun onHeightChanged(heightCm: Int) {
+        updateRequest { it.copy(heightCm = heightCm) }
+    }
+
+    /** Envía el vídeo preparado y sigue el análisis hasta su finalización. */
+    fun startAnalysis() {
+        val preparing = _uiState.value as? AnalysisUiState.Preparing ?: return
+        if (!preparing.canStart) return
 
         activeJob?.cancel()
         activeJob = viewModelScope.launch {
             _uiState.value = AnalysisUiState.Uploading
 
             val jobId = repository
-                .submit(videoSourceProvider(selected.videoUri), liftType)
+                .submit(videoSourceProvider(preparing.videoUri), preparing.request)
                 .getOrElse { error -> return@launch fail(error) }
 
             trackProgress(jobId)
@@ -61,6 +78,7 @@ class AnalysisViewModel(
         val current = _uiState.value
         if (current is AnalysisUiState.Completed) {
             current.video.delete()
+            current.chart?.delete()
             viewModelScope.launch { repository.delete(current.jobId) }
         }
         _uiState.value = AnalysisUiState.Idle
@@ -80,7 +98,7 @@ class AnalysisViewModel(
             JobStatus.PROCESSING ->
                 _uiState.value = AnalysisUiState.Processing(jobId, queued = false)
 
-            JobStatus.COMPLETED -> downloadResult(jobId, state)
+            JobStatus.COMPLETED -> downloadResults(jobId, state)
 
             JobStatus.FAILED ->
                 _uiState.value = AnalysisUiState.Failed(
@@ -89,12 +107,31 @@ class AnalysisViewModel(
         }
     }
 
-    private suspend fun downloadResult(jobId: String, state: AnalysisState) {
-        repository.downloadVideo(jobId, resultFileProvider.fileFor(jobId))
-            .onSuccess { file ->
-                _uiState.value = AnalysisUiState.Completed(jobId, file, state.summary)
-            }
-            .onFailure { error -> fail(error) }
+    private suspend fun downloadResults(jobId: String, state: AnalysisState) {
+        val video = repository
+            .downloadVideo(jobId, resultFileProvider.videoFor(jobId))
+            .getOrElse { error -> return fail(error) }
+
+        // La gráfica es prescindible: si falla su descarga, el resto del
+        // análisis sigue siendo útil para el usuario.
+        val chart = if (state.summary?.hasVelocityChart == true) {
+            repository.downloadChart(jobId, resultFileProvider.chartFor(jobId)).getOrNull()
+        } else {
+            null
+        }
+
+        _uiState.value = AnalysisUiState.Completed(jobId, video, chart, state.summary)
+    }
+
+    private fun updatePreparing(
+        transform: (AnalysisUiState.Preparing) -> AnalysisUiState.Preparing,
+    ) {
+        val current = _uiState.value as? AnalysisUiState.Preparing ?: return
+        _uiState.value = transform(current)
+    }
+
+    private fun updateRequest(transform: (AnalysisRequest) -> AnalysisRequest) {
+        updatePreparing { it.copy(request = transform(it.request)) }
     }
 
     private fun fail(error: Throwable) {

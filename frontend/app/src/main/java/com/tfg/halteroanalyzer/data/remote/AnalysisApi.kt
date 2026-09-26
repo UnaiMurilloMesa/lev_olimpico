@@ -22,7 +22,13 @@ interface AnalysisApi {
     suspend fun createAnalysis(
         @Part video: MultipartBody.Part,
         @Part("lift_type") liftType: RequestBody,
+        @Part("start_seconds") startSeconds: RequestBody,
+        @Part("athlete_height_m") athleteHeightM: RequestBody,
     ): AnalysisCreatedDto
+
+    @Streaming
+    @GET("api/v1/analyses/{jobId}/velocity-chart")
+    suspend fun downloadChart(@Path("jobId") jobId: String): ResponseBody
 
     @GET("api/v1/analyses/{jobId}")
     suspend fun getStatus(@Path("jobId") jobId: String): AnalysisStatusDto

@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tfg.halteroanalyzer.ui.analysis.AnalysisScreen
 import com.tfg.halteroanalyzer.ui.analysis.AnalysisViewModel
+import com.tfg.halteroanalyzer.ui.analysis.ResultFileProvider
 import com.tfg.halteroanalyzer.ui.theme.HalteroAnalyzerTheme
 import java.io.File
 
@@ -24,7 +25,10 @@ class MainActivity : ComponentActivity() {
         val factory = AnalysisViewModel.Factory(
             repository = container.analysisRepository,
             videoSourceProvider = container::videoSourceFor,
-            resultFileProvider = { jobId -> File(cacheDir, "$jobId.mp4") },
+            resultFileProvider = object : ResultFileProvider {
+                override fun videoFor(jobId: String) = File(cacheDir, "$jobId.mp4")
+                override fun chartFor(jobId: String) = File(cacheDir, "$jobId.png")
+            },
         )
 
         setContent {

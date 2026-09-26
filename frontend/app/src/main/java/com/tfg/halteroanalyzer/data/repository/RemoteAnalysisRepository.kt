@@ -6,8 +6,8 @@ import com.tfg.halteroanalyzer.data.remote.VideoRequestBody
 import com.tfg.halteroanalyzer.data.remote.dto.toDomain
 import com.tfg.halteroanalyzer.domain.AnalysisException
 import com.tfg.halteroanalyzer.domain.AnalysisRepository
+import com.tfg.halteroanalyzer.domain.AnalysisRequest
 import com.tfg.halteroanalyzer.domain.AnalysisState
-import com.tfg.halteroanalyzer.domain.LiftType
 import com.tfg.halteroanalyzer.domain.VideoSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -30,13 +30,17 @@ class RemoteAnalysisRepository(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : AnalysisRepository {
 
-    override suspend fun submit(video: VideoSource, liftType: LiftType): Result<String> =
+    override suspend fun submit(video: VideoSource, request: AnalysisRequest): Result<String> =
         safeCall {
             val videoPart = MultipartBody.Part.createFormData(
                 VIDEO_FIELD, video.fileName, VideoRequestBody(video),
             )
-            val liftPart = liftType.apiValue.toRequestBody(TEXT_PLAIN)
-            api.createAnalysis(videoPart, liftPart).jobId
+            api.createAnalysis(
+                video = videoPart,
+                liftType = request.liftType.apiValue.toRequestBody(TEXT_PLAIN),
+                startSeconds = request.startSeconds.toString().toRequestBody(TEXT_PLAIN),
+                athleteHeightM = request.heightMeters.toString().toRequestBody(TEXT_PLAIN),
+            ).jobId
         }
 
     override suspend fun getState(jobId: String): Result<AnalysisState> =
@@ -54,6 +58,14 @@ class RemoteAnalysisRepository(
         safeCall {
             val response = api.deleteAnalysis(jobId)
             if (!response.isSuccessful) throw HttpException(response)
+        }
+
+    override suspend fun downloadChart(jobId: String, destination: File): Result<File> =
+        safeCall {
+            api.downloadChart(jobId).use { body ->
+                destination.outputStream().use { output -> body.byteStream().copyTo(output) }
+            }
+            destination
         }
 
     private suspend fun <T> safeCall(block: suspend () -> T): Result<T> =

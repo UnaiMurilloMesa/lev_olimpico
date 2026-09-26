@@ -14,6 +14,8 @@ DEFAULT_STABILITY_THRESHOLD = 0.012
 DEFAULT_STABILITY_MS = 400
 DEFAULT_MAX_LIFT_MS = 8000
 
+DEFAULT_DROP_RATIO = 0.15
+
 
 @dataclass(frozen=True, slots=True)
 class LiftDetectionConfig:
@@ -22,6 +24,7 @@ class LiftDetectionConfig:
     stability_threshold: float = DEFAULT_STABILITY_THRESHOLD
     stability_ms: int = DEFAULT_STABILITY_MS
     max_lift_ms: int = DEFAULT_MAX_LIFT_MS
+    drop_ratio: float = DEFAULT_DROP_RATIO
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,12 +75,10 @@ def detect_lift_end(
 ) -> int:
     """Estima el fotograma en que termina el levantamiento.
 
-    La barra sube hasta su punto más alto y, tras la recepción, el atleta se
-    incorpora y la mantiene estable. El final es el primer instante posterior
-    al máximo en el que la altura deja de variar apreciablemente.
-
-    Si no se detecta estabilización, se devuelve el último fotograma admisible
-    según la duración máxima configurada.
+    Se aplican dos criterios y gana el que ocurra antes: que la barra deje de
+    variar de altura (el atleta la sostiene arriba) o que descienda de forma
+    apreciable desde su máximo (el atleta la suelta). Si no se cumple ninguno,
+    se acota por la duración máxima configurada.
     """
     config = config or LiftDetectionConfig()
     heights = bar_heights_from(sequence, start_index)
@@ -89,8 +90,34 @@ def detect_lift_end(
         return limit
 
     window = _frames_for(sequence.fps, config.stability_ms)
-    stable = _first_stable_index(heights, peak, window, config.stability_threshold)
-    return min(stable if stable is not None else limit, limit)
+    candidates = [
+        _first_stable_index(heights, peak, window, config.stability_threshold),
+        _descent_index(heights, peak, config.drop_ratio),
+    ]
+    found = [index for index in candidates if index is not None]
+    return min(min(found), limit) if found else limit
+
+
+def _descent_index(heights: BarHeights, peak_index: int, drop_ratio: float) -> int | None:
+    """Busca el fotograma en que la barra cae desde su altura máxima."""
+    known = [value for value in heights.values if value is not None]
+    if not known:
+        return None
+
+    peak_height = max(known)
+    lift_range = peak_height - known[0]
+    if lift_range <= 0:
+        return None
+
+    floor = peak_height - drop_ratio * lift_range
+    offset = peak_index - heights.start_index
+
+    for position in range(offset + 1, len(heights.values)):
+        value = heights.values[position]
+        if value is not None and value < floor:
+            return heights.start_index + position - 1
+
+    return None
 
 
 def _first_stable_index(

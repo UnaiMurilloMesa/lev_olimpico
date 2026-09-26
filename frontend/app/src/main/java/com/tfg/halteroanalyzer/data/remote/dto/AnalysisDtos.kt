@@ -19,6 +19,14 @@ data class AnalysisSummaryDto(
     @SerialName("detected_frames") val detectedFrames: Int,
     @SerialName("detection_ratio") val detectionRatio: Double,
     @SerialName("duration_seconds") val durationSeconds: Double,
+    @SerialName("bar_path_deviation") val barPathDeviation: Double,
+    @SerialName("bar_path_quality") val barPathQuality: String,
+    @SerialName("lift_start_seconds") val liftStartSeconds: Double,
+    @SerialName("lift_end_seconds") val liftEndSeconds: Double,
+    @SerialName("lift_duration_seconds") val liftDurationSeconds: Double,
+    @SerialName("peak_velocity_ms") val peakVelocityMs: Double,
+    @SerialName("peak_velocity_time") val peakVelocityTime: Double,
+    @SerialName("has_velocity_chart") val hasVelocityChart: Boolean,
 )
 
 /** Estado actual de un trabajo de análisis. */

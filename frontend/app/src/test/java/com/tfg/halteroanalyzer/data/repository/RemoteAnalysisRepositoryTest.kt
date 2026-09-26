@@ -2,8 +2,9 @@ package com.tfg.halteroanalyzer.data.repository
 
 import com.tfg.halteroanalyzer.data.remote.NetworkFactory
 import com.tfg.halteroanalyzer.domain.AnalysisException
+import com.tfg.halteroanalyzer.domain.AnalysisRequest
 import com.tfg.halteroanalyzer.domain.JobStatus
-import com.tfg.halteroanalyzer.domain.LiftType
+import com.tfg.halteroanalyzer.domain.PathQuality
 import com.tfg.halteroanalyzer.domain.VideoSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
@@ -46,7 +47,7 @@ class RemoteAnalysisRepositoryTest {
     fun `al subir un video envia un multipart y devuelve el identificador`() = runTest {
         server.enqueue(json(202, """{"job_id":"abc","status":"pending","lift_type":"snatch"}"""))
 
-        val result = repository.submit(FakeVideo(), LiftType.SNATCH)
+        val result = repository.submit(FakeVideo(), AnalysisRequest())
 
         assertEquals("abc", result.getOrThrow())
         val request = server.takeRequest()
@@ -60,7 +61,7 @@ class RemoteAnalysisRepositoryTest {
     fun `un rechazo del servidor expone el mensaje de detalle`() = runTest {
         server.enqueue(json(422, """{"detail":"Extensión no admitida: '.pdf'."}"""))
 
-        val error = repository.submit(FakeVideo(), LiftType.SNATCH).exceptionOrNull()
+        val error = repository.submit(FakeVideo(), AnalysisRequest()).exceptionOrNull()
 
         assertTrue(error is AnalysisException.Server)
         assertEquals(422, (error as AnalysisException.Server).code)
@@ -75,7 +76,11 @@ class RemoteAnalysisRepositoryTest {
                 """
                 {"job_id":"abc","status":"completed","result":{
                   "video_name":"analysis.mp4","processed_frames":120,
-                  "detected_frames":118,"detection_ratio":0.98,"duration_seconds":4.0}}
+                  "detected_frames":118,"detection_ratio":0.98,"duration_seconds":4.0,
+                  "bar_path_deviation":0.12,"bar_path_quality":"acceptable",
+                  "lift_start_seconds":1.5,"lift_end_seconds":4.2,
+                  "lift_duration_seconds":2.7,"peak_velocity_ms":1.82,
+                  "peak_velocity_time":0.65,"has_velocity_chart":true}}
                 """.trimIndent(),
             ),
         )
@@ -84,6 +89,7 @@ class RemoteAnalysisRepositoryTest {
 
         assertEquals(JobStatus.COMPLETED, state.status)
         assertEquals(120, state.summary!!.processedFrames)
+        assertEquals(PathQuality.ACCEPTABLE, state.summary!!.barPathQuality)
     }
 
     @Test
@@ -125,6 +131,31 @@ class RemoteAnalysisRepositoryTest {
         val error = repository.getState("abc").exceptionOrNull()
 
         assertTrue(error is AnalysisException.Network)
+    }
+
+    @Test
+    fun `envia el instante de inicio y la estatura en el multipart`() = runTest {
+        server.enqueue(json(202, """{"job_id":"abc","status":"pending","lift_type":"snatch"}"""))
+
+        repository.submit(FakeVideo(), AnalysisRequest(startSeconds = 1.5, heightCm = 178))
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("name=\"start_seconds\""))
+        assertTrue(body.contains("1.5"))
+        assertTrue(body.contains("name=\"athlete_height_m\""))
+        assertTrue(body.contains("1.78"))
+    }
+
+    @Test
+    fun `descarga la grafica de velocidad`() = runTest {
+        val contenido = byteArrayOf(9, 8, 7)
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(contenido)))
+        val destino = tempFolder.newFile("chart.png")
+
+        repository.downloadChart("abc", destino).getOrThrow()
+
+        assertEquals("/api/v1/analyses/abc/velocity-chart", server.takeRequest().path)
+        assertArrayEquals(contenido, destino.readBytes())
     }
 
     private fun json(code: Int, body: String) =

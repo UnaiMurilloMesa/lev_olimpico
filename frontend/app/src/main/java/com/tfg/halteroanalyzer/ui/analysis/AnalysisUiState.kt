@@ -1,5 +1,6 @@
 package com.tfg.halteroanalyzer.ui.analysis
 
+import com.tfg.halteroanalyzer.domain.AnalysisRequest
 import com.tfg.halteroanalyzer.domain.AnalysisSummary
 import java.io.File
 
@@ -9,8 +10,22 @@ sealed interface AnalysisUiState {
     /** Nada seleccionado todavía: se muestra el botón de analizar. */
     data object Idle : AnalysisUiState
 
-    /** Vídeo elegido, pendiente de confirmar el inicio del análisis. */
-    data class VideoSelected(val videoUri: String) : AnalysisUiState
+    /**
+     * Vídeo elegido: el usuario ajusta el instante de despegue y su estatura
+     * antes de lanzar el análisis.
+     */
+    data class Preparing(
+        val videoUri: String,
+        val request: AnalysisRequest = AnalysisRequest(),
+        val videoDurationSeconds: Double = 0.0,
+    ) : AnalysisUiState {
+
+        /** Indica si los datos introducidos permiten lanzar el análisis. */
+        val canStart: Boolean
+            get() = videoDurationSeconds > 0 &&
+                    request.isValid &&
+                    request.startSeconds <= videoDurationSeconds
+    }
 
     /** El vídeo se está enviando al servidor. */
     data object Uploading : AnalysisUiState
@@ -22,6 +37,7 @@ sealed interface AnalysisUiState {
     data class Completed(
         val jobId: String,
         val video: File,
+        val chart: File?,
         val summary: AnalysisSummary?,
     ) : AnalysisUiState
 

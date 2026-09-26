@@ -101,10 +101,13 @@ class AnalysisStatusPollerTest {
             return response
         }
 
-        override suspend fun submit(video: VideoSource, liftType: LiftType): Result<String> =
+        override suspend fun submit(video: VideoSource, request: AnalysisRequest): Result<String> =
             throw NotImplementedError()
 
         override suspend fun downloadVideo(jobId: String, destination: File): Result<File> =
+            throw NotImplementedError()
+
+        override suspend fun downloadChart(jobId: String, destination: File): Result<File> =
             throw NotImplementedError()
 
         override suspend fun delete(jobId: String): Result<Unit> = throw NotImplementedError()
