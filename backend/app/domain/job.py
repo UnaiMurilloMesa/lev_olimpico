@@ -5,10 +5,10 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Estados posibles de un trabajo de análisis."""
 
     PENDING = "pending"
@@ -22,7 +22,7 @@ class JobStatus(str, Enum):
         return self in (JobStatus.COMPLETED, JobStatus.FAILED)
 
 
-class LiftType(str, Enum):
+class LiftType(StrEnum):
     """Modalidades de levantamiento soportadas."""
 
     SNATCH = "snatch"

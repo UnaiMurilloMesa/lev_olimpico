@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from app.domain.landmarks import Landmark, PoseFrame, PoseLandmarkId
-
-LANDMARK_COUNT = 33
+from app.domain.landmarks import PoseFrame, PoseLandmarkId
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,7 +28,9 @@ class PoseSequence:
         """Proporción de fotogramas con pose detectada."""
         return self.detected_count / len(self.frames) if self.frames else 0.0
 
-    def coordinates_of(self, landmark_id: PoseLandmarkId) -> list[tuple[float, float, float] | None]:
+    def coordinates_of(
+        self, landmark_id: PoseLandmarkId
+    ) -> list[tuple[float, float, float] | None]:
         """Devuelve la trayectoria de un punto a lo largo del vídeo.
 
         Los fotogramas sin pose detectada se representan como `None` en la
