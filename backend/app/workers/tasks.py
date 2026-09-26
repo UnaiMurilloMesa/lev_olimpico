@@ -23,7 +23,12 @@ def ping() -> str:
 
 
 @celery_app.task(name="tasks.analyze_lift", bind=True)
-def analyze_lift(self: Task, job_id: str, start_seconds: float = 0.0) -> dict[str, Any]:
+def analyze_lift(
+    self: Task,
+    job_id: str,
+    start_seconds: float = 0.0,
+    athlete_height_m: float = 1.75,
+) -> dict[str, Any]:
     """Ejecuta el análisis del vídeo asociado a un trabajo.
 
     Returns:
@@ -43,7 +48,7 @@ def analyze_lift(self: Task, job_id: str, start_seconds: float = 0.0) -> dict[st
     logger.info("Analizando el trabajo %s", job_id)
 
     service = build_analysis_service(settings)
-    result = service.analyze(source, workspace.path, start_seconds)
+    result = service.analyze(source, workspace.path, start_seconds, athlete_height_m)
     source.unlink(missing_ok=True)
 
     return {
@@ -58,4 +63,7 @@ def analyze_lift(self: Task, job_id: str, start_seconds: float = 0.0) -> dict[st
         "lift_start_seconds": result.lift_start_seconds,
         "lift_end_seconds": result.lift_end_seconds,
         "lift_duration_seconds": result.lift_duration_seconds,
+        "peak_velocity_ms": result.peak_velocity_ms,
+        "peak_velocity_time": result.peak_velocity_time,
+        "has_velocity_chart": result.velocity_chart is not None,
     }

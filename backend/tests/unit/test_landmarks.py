@@ -2,7 +2,13 @@
 
 import pytest
 
-from app.domain.landmarks import ConfidenceLevel, Landmark, PoseFrame, PoseLandmarkId, LandmarkOrigin
+from app.domain.landmarks import (
+    ConfidenceLevel,
+    Landmark,
+    LandmarkOrigin,
+    PoseFrame,
+    PoseLandmarkId,
+)
 
 
 def _landmark(visibility: float = 1.0, x: float = 0.5, y: float = 0.5) -> Landmark:
@@ -51,9 +57,9 @@ def test_devuelve_el_punto_solicitado_por_su_identificador() -> None:
 
     assert frame.landmark(PoseLandmarkId.LEFT_HIP).x == pytest.approx(0.23)
 
+
 def test_un_punto_interpolado_siempre_tiene_confianza_baja() -> None:
-    punto = Landmark(x=0.5, y=0.5, z=0.0, visibility=0.99,
-                     origin=LandmarkOrigin.INTERPOLATED)
+    punto = Landmark(x=0.5, y=0.5, z=0.0, visibility=0.99, origin=LandmarkOrigin.INTERPOLATED)
 
     assert punto.confidence is ConfidenceLevel.LOW
     assert punto.is_interpolated is True
@@ -64,8 +70,7 @@ def test_los_puntos_son_detectados_por_defecto() -> None:
 
 
 def test_mover_un_punto_conserva_su_origen_y_visibilidad() -> None:
-    original = Landmark(0.1, 0.2, 0.3, visibility=0.8,
-                        origin=LandmarkOrigin.INTERPOLATED)
+    original = Landmark(0.1, 0.2, 0.3, visibility=0.8, origin=LandmarkOrigin.INTERPOLATED)
 
     movido = original.moved_to(0.9, 0.8, 0.7)
 

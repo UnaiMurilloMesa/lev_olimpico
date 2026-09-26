@@ -7,14 +7,14 @@ import numpy as np
 import pytest
 
 from app.core.config import get_settings
+from app.services.analysis.velocity_chart import MatplotlibVelocityChart
 from app.services.analysis_service import AnalysisService
+from app.services.factory import build_frame_renderer
 from app.services.pose.estimator import MediaPipePoseEstimator
-from app.services.pose.renderer import SkeletonRenderer
 from app.services.pose.smoother import SavitzkyGolaySmoother
 from app.services.video.extractor import PoseExtractor
 from app.services.video.renderer import PoseVideoRenderer
 from app.services.video.transcoder import FfmpegTranscoder
-from app.services.factory import build_frame_renderer
 
 pytestmark = pytest.mark.slow
 
@@ -55,6 +55,7 @@ def test_el_pipeline_completo_genera_un_video_reproducible(
             smoother=SavitzkyGolaySmoother(),
             video_renderer=PoseVideoRenderer(build_frame_renderer),
             transcoder=FfmpegTranscoder(),
+            chart_renderer=MatplotlibVelocityChart(),
         )
         result = service.analyze(synthetic_video, tmp_path / "job-integracion")
 

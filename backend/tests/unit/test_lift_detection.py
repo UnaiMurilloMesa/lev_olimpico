@@ -24,9 +24,7 @@ def _frame(index: int, bar_y: float | None) -> PoseFrame:
 
 
 def _sequence(bar_ys: list[float | None]) -> PoseSequence:
-    return PoseSequence(
-        frames=tuple(_frame(index, y) for index, y in enumerate(bar_ys)), fps=FPS
-    )
+    return PoseSequence(frames=tuple(_frame(index, y) for index, y in enumerate(bar_ys)), fps=FPS)
 
 
 def _lift(subida: int = 20, estable: int = 30) -> list[float | None]:
@@ -107,6 +105,7 @@ def test_un_pequeno_temblor_no_impide_detectar_la_estabilizacion() -> None:
     final = detect_lift_end(_sequence(subida + temblor), start_index=0)
 
     assert final < 49
+
 
 def test_ante_alturas_iguales_se_toma_la_primera() -> None:
     """Tras la recepción la barra se mantiene arriba; el pico es cuando llega."""

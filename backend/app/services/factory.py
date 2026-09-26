@@ -3,6 +3,7 @@
 from app.core.config import Settings
 from app.domain.bar_path import extract_bar_path
 from app.domain.sequence import PoseSequence
+from app.services.analysis.velocity_chart import MatplotlibVelocityChart
 from app.services.analysis_service import AnalysisService
 from app.services.pose.angle_renderer import AngleRenderer
 from app.services.pose.bar_path_renderer import BarPathRenderer
@@ -32,4 +33,5 @@ def build_analysis_service(settings: Settings) -> AnalysisService:
         smoother=SavitzkyGolaySmoother(),
         video_renderer=PoseVideoRenderer(build_frame_renderer),
         transcoder=FfmpegTranscoder(),
+        chart_renderer=MatplotlibVelocityChart(),
     )

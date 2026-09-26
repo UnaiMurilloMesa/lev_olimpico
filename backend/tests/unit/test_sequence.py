@@ -8,9 +8,7 @@ from app.domain.sequence import PoseSequence
 
 def _frame(index: int, detected: bool = True, x: float = 0.5) -> PoseFrame:
     landmarks = (
-        tuple(Landmark(x=x, y=0.5, z=0.0, visibility=1.0) for _ in range(33))
-        if detected
-        else ()
+        tuple(Landmark(x=x, y=0.5, z=0.0, visibility=1.0) for _ in range(33)) if detected else ()
     )
     return PoseFrame(index=index, timestamp_ms=index * 33, landmarks=landmarks)
 

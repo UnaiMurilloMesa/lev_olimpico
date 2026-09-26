@@ -61,6 +61,9 @@ def _resumen(**overrides: object) -> dict[str, object]:
         "lift_start_seconds": 1.5,
         "lift_end_seconds": 4.2,
         "lift_duration_seconds": 2.7,
+        "peak_velocity_ms": 1.82,
+        "peak_velocity_time": 0.65,
+        "has_velocity_chart": True,
     }
     return base | overrides
 

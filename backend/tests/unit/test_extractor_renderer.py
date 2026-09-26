@@ -24,9 +24,7 @@ class FakeEstimator:
 
     def estimate(self, frame_bgr: np.ndarray, index: int, timestamp_ms: int) -> PoseFrame:
         self.timestamps.append(timestamp_ms)
-        landmarks = (
-            tuple(Landmark(0.5, 0.5, 0.0, 1.0) for _ in range(33)) if self._detected else ()
-        )
+        landmarks = tuple(Landmark(0.5, 0.5, 0.0, 1.0) for _ in range(33)) if self._detected else ()
         return PoseFrame(index=index, timestamp_ms=timestamp_ms, landmarks=landmarks)
 
 
@@ -92,13 +90,13 @@ def test_extraer_un_video_inexistente_falla(tmp_path: Path) -> None:
         PoseExtractor(FakeEstimator()).extract(tmp_path / "inexistente.mp4")
 
 
-def test_el_renderizado_dibuja_la_secuencia_suministrada(
-    video_30fps: Path, tmp_path: Path
-) -> None:
+def test_el_renderizado_dibuja_la_secuencia_suministrada(video_30fps: Path, tmp_path: Path) -> None:
     sequence, metadata = PoseExtractor(FakeEstimator()).extract(video_30fps)
     spy = SpyRenderer()
 
-    PoseVideoRenderer(lambda _: spy).render(video_30fps, tmp_path / "salida.mp4", sequence, metadata)
+    PoseVideoRenderer(lambda _: spy).render(
+        video_30fps, tmp_path / "salida.mp4", sequence, metadata
+    )
 
     assert len(spy.poses) == len(sequence)
 
@@ -113,21 +111,19 @@ def test_el_renderizado_genera_el_fichero(video_30fps: Path, tmp_path: Path) -> 
     assert destino.stat().st_size > 0
 
 
-def test_las_dos_pasadas_recorren_los_mismos_fotogramas(
-    video_120fps: Path, tmp_path: Path
-) -> None:
+def test_las_dos_pasadas_recorren_los_mismos_fotogramas(video_120fps: Path, tmp_path: Path) -> None:
     """El submuestreo debe coincidir en extracción y renderizado."""
     sequence, metadata = PoseExtractor(FakeEstimator()).extract(video_120fps)
     spy = SpyRenderer()
 
-    PoseVideoRenderer(lambda _: spy).render(video_120fps, tmp_path / "salida.mp4", sequence, metadata)
+    PoseVideoRenderer(lambda _: spy).render(
+        video_120fps, tmp_path / "salida.mp4", sequence, metadata
+    )
 
     assert [pose.index for pose in spy.poses] == [frame.index for frame in sequence.frames]
 
 
-def test_renderizar_con_una_secuencia_vacia_no_falla(
-    video_30fps: Path, tmp_path: Path
-) -> None:
+def test_renderizar_con_una_secuencia_vacia_no_falla(video_30fps: Path, tmp_path: Path) -> None:
     sequence, metadata = PoseExtractor(FakeEstimator()).extract(video_30fps)
     vacia = PoseSequence(frames=(), fps=metadata.fps)
 

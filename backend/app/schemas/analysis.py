@@ -26,6 +26,9 @@ class AnalysisSummary(BaseModel):
     lift_start_seconds: float = Field(description="Instante de despegue de la barra.")
     lift_end_seconds: float = Field(description="Instante en que termina el levantamiento.")
     lift_duration_seconds: float = Field(description="Duración del levantamiento acotado.")
+    peak_velocity_ms: float = Field(description="Velocidad vertical máxima de la barra.")
+    peak_velocity_time: float = Field(description="Instante de la velocidad máxima.")
+    has_velocity_chart: bool = Field(description="Indica si hay gráfica de velocidad.")
 
 
 class AnalysisStatusResponse(BaseModel):

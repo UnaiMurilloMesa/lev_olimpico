@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/analyses", tags=["analyses"])
 
 RESULT_VIDEO_NAME = "analysis.mp4"
+CHART_IMAGE_NAME = "velocity.png"
 
 
 @router.post(
@@ -37,6 +38,7 @@ def create_analysis(
     video: UploadFile = File(description="Vídeo del levantamiento."),
     lift_type: LiftType = Form(default=LiftType.SNATCH),
     start_seconds: float = Form(default=0.0, ge=0.0),
+    athlete_height_m: float = Form(default=1.75, gt=1.0, lt=2.5),
 ) -> AnalysisCreatedResponse:
     """Encola el análisis de un vídeo de levantamiento.
 
@@ -58,7 +60,7 @@ def create_analysis(
     with destination.open("wb") as buffer:
         shutil.copyfileobj(video.file, buffer)
 
-    analyze_lift.apply_async(args=[job.job_id, start_seconds], task_id=job.job_id)
+    analyze_lift.apply_async(args=[job.job_id, start_seconds, athlete_height_m], task_id=job.job_id)
     logger.info("Trabajo %s encolado (%s)", job.job_id, lift_type.value)
 
     return AnalysisCreatedResponse(
@@ -101,3 +103,20 @@ def delete_analysis(job_id: str, settings: SettingsDep) -> None:
     """Elimina todos los datos asociados a un análisis."""
     JobWorkspace(settings.storage_dir, job_id).delete()
     logger.info("Trabajo %s eliminado a petición del cliente", job_id)
+
+@router.get("/{job_id}/velocity-chart", response_class=FileResponse)
+def download_velocity_chart(job_id: str, settings: SettingsDep) -> FileResponse:
+    """Devuelve la gráfica de velocidad de un trabajo completado.
+
+    Raises:
+        HTTPException: Si la gráfica todavía no existe.
+    """
+    chart_path = JobWorkspace(settings.storage_dir, job_id).result_path(CHART_IMAGE_NAME)
+
+    if not chart_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La gráfica de velocidad no está disponible para este trabajo.",
+        )
+
+    return FileResponse(path=chart_path, media_type="image/png", filename=CHART_IMAGE_NAME)

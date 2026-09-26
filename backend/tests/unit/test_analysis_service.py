@@ -6,8 +6,9 @@ import cv2
 import numpy as np
 import pytest
 
-from app.domain.landmarks import Landmark, PoseFrame
+from app.domain.landmarks import Landmark, PoseFrame, PoseLandmarkId
 from app.domain.sequence import PoseSequence
+from app.services.analysis.velocity import BarVelocity
 from app.services.analysis_service import FINAL_OUTPUT_NAME, AnalysisService
 from app.services.video.metadata import VideoMetadata
 
@@ -25,16 +26,30 @@ class FakeExtractor:
             PoseFrame(
                 index=index,
                 timestamp_ms=index * 33,
-                landmarks=(
-                    tuple(Landmark(0.5, 0.5, 0.0, 1.0) for _ in range(33))
-                    if index < self._detected
-                    else ()
-                ),
+                landmarks=self._landmarks(index) if index < self._detected else (),
             )
             for index in range(FRAMES)
         )
         metadata = VideoMetadata(width=64, height=48, fps=30.0, frame_count=FRAMES)
         return PoseSequence(frames=frames, fps=30.0), metadata
+
+    @staticmethod
+    def _landmarks(index: int) -> tuple[Landmark, ...]:
+        """Pose con cuerpo extendido y barra subiendo, para que haya escala."""
+        points = [Landmark(0.5, 0.5, 0.0, 1.0) for _ in range(33)]
+        for eye in (PoseLandmarkId.LEFT_EYE, PoseLandmarkId.RIGHT_EYE):
+            points[eye] = Landmark(0.5, 0.1, 0.0, 1.0)
+        for foot in (
+            PoseLandmarkId.LEFT_HEEL,
+            PoseLandmarkId.RIGHT_HEEL,
+            PoseLandmarkId.LEFT_FOOT_INDEX,
+            PoseLandmarkId.RIGHT_FOOT_INDEX,
+        ):
+            points[foot] = Landmark(0.5, 0.9, 0.0, 1.0)
+        bar_y = 0.8 - 0.05 * index
+        for wrist in (PoseLandmarkId.LEFT_WRIST, PoseLandmarkId.RIGHT_WRIST):
+            points[wrist] = Landmark(0.5, bar_y, 0.0, 1.0)
+        return tuple(points)
 
 
 class SpySmoother:
@@ -65,6 +80,15 @@ class FakeVideoRenderer:
         self.sequences.append(sequence)
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(b"video-renderizado")
+        return destination
+
+
+class FakeChartRenderer:
+    """Generador de gráficas que crea un fichero vacío."""
+
+    def render(self, velocity: BarVelocity, destination: Path) -> Path:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(b"png")
         return destination
 
 
@@ -101,6 +125,7 @@ def _service(
         smoother=smoother or SpySmoother(),
         video_renderer=renderer or FakeVideoRenderer(),
         transcoder=transcoder,
+        chart_renderer=FakeChartRenderer(),
     )
 
 
@@ -154,18 +179,27 @@ def test_crea_el_directorio_de_trabajo_si_no_existe(sample_video: Path, tmp_path
 
     assert workspace.is_dir()
 
+
 def test_incluye_la_valoracion_del_bar_path(sample_video: Path, tmp_path: Path) -> None:
     result = _service(FakeTranscoder()).analyze(sample_video, tmp_path / "job-1")
 
     assert result.bar_path_quality in {"excellent", "acceptable", "poor"}
     assert result.bar_path_deviation >= 0.0
 
+
 def test_acota_el_levantamiento_desde_el_instante_indicado(
     sample_video: Path, tmp_path: Path
 ) -> None:
-    result = _service(FakeTranscoder()).analyze(
-        sample_video, tmp_path / "job-1", start_seconds=0.1
-    )
+    result = _service(FakeTranscoder()).analyze(sample_video, tmp_path / "job-1", start_seconds=0.1)
 
     assert result.lift_start_seconds == pytest.approx(0.1, abs=0.05)
     assert result.lift_end_seconds >= result.lift_start_seconds
+
+
+def test_genera_la_grafica_de_velocidad(sample_video: Path, tmp_path: Path) -> None:
+    workspace = tmp_path / "job-1"
+
+    result = _service(FakeTranscoder()).analyze(sample_video, workspace)
+
+    assert result.velocity_chart == workspace / "velocity.png"
+    assert result.velocity_chart.is_file()

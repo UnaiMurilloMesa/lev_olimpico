@@ -22,9 +22,7 @@ def _frame(index: int, left_x: float, right_x: float, y: float) -> PoseFrame:
 
 def _path(*coords: tuple[float, float]) -> BarPath:
     return BarPath(
-        points=tuple(
-            BarPoint(frame_index=index, x=x, y=y) for index, (x, y) in enumerate(coords)
-        )
+        points=tuple(BarPoint(frame_index=index, x=x, y=y) for index, (x, y) in enumerate(coords))
     )
 
 
