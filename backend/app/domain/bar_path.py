@@ -10,8 +10,8 @@ from app.domain.sequence import PoseSequence
 
 # Umbrales de desviación horizontal, expresados como fracción del recorrido
 # vertical total de la barra.
-EXCELLENT_DEVIATION = 0.08
-ACCEPTABLE_DEVIATION = 0.16
+EXCELLENT_DEVIATION = 0.20
+ACCEPTABLE_DEVIATION = 0.30
 
 
 class PathQuality(StrEnum):
