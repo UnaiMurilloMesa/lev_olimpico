@@ -75,13 +75,13 @@ def test_una_desviacion_pequena_se_considera_excelente() -> None:
 
 
 def test_una_desviacion_moderada_se_considera_aceptable() -> None:
-    trayectoria = _path((0.50, 0.9), (0.56, 0.6), (0.50, 0.3))
+    trayectoria = _path((0.50, 0.9), (0.65, 0.6), (0.50, 0.3))
 
     assert trayectoria.quality is PathQuality.ACCEPTABLE
 
 
 def test_una_desviacion_grande_se_considera_deficiente() -> None:
-    trayectoria = _path((0.50, 0.9), (0.70, 0.6), (0.50, 0.3))
+    trayectoria = _path((0.50, 0.9), (0.85, 0.6), (0.50, 0.3))
 
     assert trayectoria.quality is PathQuality.POOR
 
@@ -105,10 +105,10 @@ def test_una_trayectoria_vacia_no_divide_entre_cero() -> None:
     ("ratio", "esperado"),
     [
         (0.0, PathQuality.EXCELLENT),
-        (0.08, PathQuality.EXCELLENT),
-        (0.09, PathQuality.ACCEPTABLE),
-        (0.16, PathQuality.ACCEPTABLE),
-        (0.17, PathQuality.POOR),
+        (0.20, PathQuality.EXCELLENT),
+        (0.21, PathQuality.ACCEPTABLE),
+        (0.30, PathQuality.ACCEPTABLE),
+        (0.31, PathQuality.POOR),
         (1.0, PathQuality.POOR),
     ],
 )

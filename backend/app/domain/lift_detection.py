@@ -8,23 +8,16 @@ from app.domain.bar_path import bar_position
 from app.domain.lift_window import LiftWindow
 from app.domain.sequence import PoseSequence
 
-# La barra se considera estabilizada cuando su altura varía menos que este
-# margen (en coordenadas normalizadas) durante la ventana de reposo.
-DEFAULT_STABILITY_THRESHOLD = 0.012
-DEFAULT_STABILITY_MS = 400
+DEFAULT_MIN_LIFT_MS = 800
 DEFAULT_MAX_LIFT_MS = 8000
-
-DEFAULT_DROP_RATIO = 0.15
 
 
 @dataclass(frozen=True, slots=True)
 class LiftDetectionConfig:
     """Parámetros del detector del final del levantamiento."""
 
-    stability_threshold: float = DEFAULT_STABILITY_THRESHOLD
-    stability_ms: int = DEFAULT_STABILITY_MS
+    min_lift_ms: int = DEFAULT_MIN_LIFT_MS
     max_lift_ms: int = DEFAULT_MAX_LIFT_MS
-    drop_ratio: float = DEFAULT_DROP_RATIO
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,9 +35,9 @@ class BarHeights:
     def highest_index(self) -> int | None:
         """Índice absoluto del fotograma donde la barra alcanza su máximo.
 
-        Ante alturas repetidas se devuelve la primera, ya que tras la recepción
-        la barra permanece en su altura máxima durante varios fotogramas y nos
-        interesa el instante en que llega, no el último en que sigue ahí.
+        Ante alturas repetidas se devuelve la primera, ya que tras la
+        incorporación la barra permanece arriba durante varios fotogramas y
+        nos interesa el instante en que llega, no el último en que sigue ahí.
         """
         best_offset: int | None = None
         best_value = float("-inf")
@@ -75,66 +68,25 @@ def detect_lift_end(
 ) -> int:
     """Estima el fotograma en que termina el levantamiento.
 
-    Se aplican dos criterios y gana el que ocurra antes: que la barra deje de
-    variar de altura (el atleta la sostiene arriba) o que descienda de forma
-    apreciable desde su máximo (el atleta la suelta). Si no se cumple ninguno,
-    se acota por la duración máxima configurada.
+    Todo snatch describe la misma curva: la barra sube durante el tirón,
+    desciende ligeramente en la recepción y alcanza su punto más alto cuando
+    el atleta termina de incorporarse. Ese máximo marca el final del
+    levantamiento, así que basta con localizarlo.
+
+    El resultado se acota entre una duración mínima y una máxima, para evitar
+    ventanas degeneradas cuando la detección de la barra es pobre.
     """
     config = config or LiftDetectionConfig()
-    heights = bar_heights_from(sequence, start_index)
     last_index = sequence.frames[-1].index if sequence.frames else start_index
 
-    limit = min(last_index, start_index + _frames_for(sequence.fps, config.max_lift_ms))
-    peak = heights.highest_index()
+    floor = min(last_index, start_index + _frames_for(sequence.fps, config.min_lift_ms))
+    ceiling = min(last_index, start_index + _frames_for(sequence.fps, config.max_lift_ms))
+
+    peak = bar_heights_from(sequence, start_index).highest_index()
     if peak is None:
-        return limit
+        return ceiling
 
-    window = _frames_for(sequence.fps, config.stability_ms)
-    candidates = [
-        _first_stable_index(heights, peak, window, config.stability_threshold),
-        _descent_index(heights, peak, config.drop_ratio),
-    ]
-    found = [index for index in candidates if index is not None]
-    return min(min(found), limit) if found else limit
-
-
-def _descent_index(heights: BarHeights, peak_index: int, drop_ratio: float) -> int | None:
-    """Busca el fotograma en que la barra cae desde su altura máxima."""
-    known = [value for value in heights.values if value is not None]
-    if not known:
-        return None
-
-    peak_height = max(known)
-    lift_range = peak_height - known[0]
-    if lift_range <= 0:
-        return None
-
-    floor = peak_height - drop_ratio * lift_range
-    offset = peak_index - heights.start_index
-
-    for position in range(offset + 1, len(heights.values)):
-        value = heights.values[position]
-        if value is not None and value < floor:
-            return heights.start_index + position - 1
-
-    return None
-
-
-def _first_stable_index(
-    heights: BarHeights, peak_index: int, window: int, threshold: float
-) -> int | None:
-    """Busca el primer tramo estable posterior al máximo de la barra."""
-    offset = peak_index - heights.start_index
-
-    for position in range(offset, len(heights.values) - window + 1):
-        segment = heights.values[position : position + window]
-        known = [value for value in segment if value is not None]
-        if len(known) < window:
-            continue
-        if max(known) - min(known) <= threshold:
-            return heights.start_index + position + window - 1
-
-    return None
+    return min(max(peak, floor), ceiling)
 
 
 def _frames_for(fps: float, milliseconds: int) -> int:

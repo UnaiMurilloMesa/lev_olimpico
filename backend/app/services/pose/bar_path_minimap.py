@@ -15,7 +15,6 @@ from app.services.pose.bar_path_renderer import (
     COLOR_POOR,
 )
 
-
 PANEL_TITLE = "Bar Path"
 TITLE_COLOR = (230, 230, 230)
 PANEL_BACKGROUND = (30, 30, 30)
