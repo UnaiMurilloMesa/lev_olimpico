@@ -77,6 +77,7 @@ class RemoteAnalysisRepositoryTest {
                 {"job_id":"abc","status":"completed","result":{
                   "video_name":"analysis.mp4","processed_frames":120,
                   "detected_frames":118,"detection_ratio":0.98,"duration_seconds":4.0,
+                  "interpolated_frames":2,
                   "bar_path_deviation":0.12,"bar_path_quality":"acceptable",
                   "lift_start_seconds":1.5,"lift_end_seconds":4.2,
                   "lift_duration_seconds":2.7,"peak_velocity_ms":1.82,

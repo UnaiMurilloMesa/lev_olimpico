@@ -45,6 +45,7 @@ data class AnalysisSummary(
     val peakVelocityMs: Double,
     val peakVelocityTime: Double,
     val hasVelocityChart: Boolean,
+    val interpolatedFrames: Int,
 )
 
 /** Estado de un análisis en curso o terminado. */

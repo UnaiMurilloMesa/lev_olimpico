@@ -10,7 +10,7 @@ from app.domain.bar_path import extract_bar_path
 from app.domain.lift_detection import detect_lift_window
 from app.domain.lift_window import LiftWindow, slice_sequence
 from app.domain.scale import estimate_scale
-from app.domain.sequence import PoseSequence
+from app.domain.sequence import KEY_LANDMARKS, PoseSequence
 from app.services.analysis.velocity import BarVelocity, compute_bar_velocity
 from app.services.analysis.velocity_chart import VelocityChartRenderer
 from app.services.pose.smoother import PoseSmoother
@@ -45,6 +45,7 @@ class AnalysisResult:
     peak_velocity_time: float
     velocity_chart: Path | None
     athlete_height_m: float
+    interpolated_frames: int
 
 
 class AnalysisService:
@@ -100,12 +101,31 @@ class AnalysisService:
 
         window = detect_lift_window(smoothed, start_seconds)
         lift = slice_sequence(smoothed, window)
+        raw_lift = slice_sequence(sequence, window)
         logger.info(
-            "Levantamiento acotado entre los fotogramas %d y %d (%.2fs)",
+            "Levantamiento acotado entre los fotogramas %d y %d (%.2fs), "
+            "pose detectada en %.1f%% de los fotogramas",
             window.start_index,
             window.end_index,
             window.duration_seconds(smoothed.fps),
+            raw_lift.detection_ratio * 100,
         )
+
+
+
+        bar_path_debug = extract_bar_path(lift)
+        if bar_path_debug.points:
+            logger.info(
+                "Bar path: %d puntos, del fotograma %d al %d (ventana %d-%d)",
+                len(bar_path_debug),
+                bar_path_debug.points[0].frame_index,
+                bar_path_debug.points[-1].frame_index,
+                window.start_index,
+                window.end_index,
+            )
+
+
+
 
         velocity, chart = self._compute_velocity(smoothed, lift, workspace, athlete_height_m)
 
@@ -114,7 +134,8 @@ class AnalysisService:
         raw_output.unlink(missing_ok=True)
 
         return self._build_result(
-            final_output, metadata, smoothed, lift, window, velocity, chart, athlete_height_m
+            final_output, metadata, smoothed, lift, raw_lift, window, velocity, chart,
+            athlete_height_m,
         )
 
     def _compute_velocity(
@@ -145,6 +166,7 @@ class AnalysisService:
         metadata: VideoMetadata,
         full: PoseSequence,
         lift: PoseSequence,
+        raw_lift: PoseSequence,
         window: LiftWindow,
         velocity: BarVelocity,
         chart: Path | None,
@@ -155,8 +177,9 @@ class AnalysisService:
         return AnalysisResult(
             video_path=video_path,
             processed_frames=len(full),
-            detected_frames=lift.detected_count,
-            detection_ratio=lift.detection_ratio,
+            detected_frames=raw_lift.detected_count,
+            detection_ratio=raw_lift.tracking_quality(KEY_LANDMARKS),
+            interpolated_frames=lift.detected_count - raw_lift.detected_count,
             duration_seconds=metadata.duration_seconds,
             bar_path_deviation=round(bar_path.deviation_ratio, 4),
             bar_path_quality=bar_path.quality.value,

@@ -3,7 +3,7 @@
 import pytest
 
 from app.domain.landmarks import Landmark, PoseFrame, PoseLandmarkId
-from app.domain.sequence import PoseSequence
+from app.domain.sequence import KEY_LANDMARKS, PoseSequence
 
 
 def _frame(index: int, detected: bool = True, x: float = 0.5) -> PoseFrame:
@@ -78,3 +78,30 @@ def test_sustituir_los_fotogramas_conserva_los_fps() -> None:
 
     assert nueva.fps == 60.0
     assert len(nueva) == 2
+
+
+def test_la_calidad_de_rastreo_es_total_con_todos_los_puntos_fiables() -> None:
+    secuencia = _sequence(_frame(0), _frame(1))
+
+    assert secuencia.tracking_quality(KEY_LANDMARKS) == pytest.approx(1.0)
+
+
+def test_los_puntos_poco_visibles_bajan_la_calidad_de_rastreo() -> None:
+    landmarks = [Landmark(0.5, 0.5, 0.0, 1.0) for _ in range(33)]
+    landmarks[PoseLandmarkId.LEFT_WRIST] = Landmark(0.5, 0.5, 0.0, 0.2)
+    landmarks[PoseLandmarkId.RIGHT_WRIST] = Landmark(0.5, 0.5, 0.0, 0.2)
+    frame = PoseFrame(index=0, timestamp_ms=0, landmarks=tuple(landmarks))
+
+    calidad = _sequence(frame).tracking_quality(KEY_LANDMARKS)
+
+    assert calidad == pytest.approx(0.8)
+
+
+def test_un_fotograma_sin_pose_cuenta_como_rastreo_fallido() -> None:
+    secuencia = _sequence(_frame(0), _frame(1, detected=False))
+
+    assert secuencia.tracking_quality(KEY_LANDMARKS) == pytest.approx(0.5)
+
+
+def test_una_secuencia_vacia_no_divide_entre_cero_al_medir_el_rastreo() -> None:
+    assert _sequence().tracking_quality(KEY_LANDMARKS) == 0.0

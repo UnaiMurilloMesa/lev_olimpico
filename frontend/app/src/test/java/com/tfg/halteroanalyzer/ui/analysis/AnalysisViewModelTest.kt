@@ -335,6 +335,7 @@ class AnalysisViewModelTest {
             peakVelocityMs = 1.8,
             peakVelocityTime = 0.6,
             hasVelocityChart = hasChart,
+            interpolatedFrames = 2,
         )
     }
 }

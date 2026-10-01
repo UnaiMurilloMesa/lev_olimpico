@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-from app.domain.landmarks import PoseFrame, PoseLandmarkId
+from app.domain.landmarks import ConfidenceLevel, PoseFrame, PoseLandmarkId
 
+# Puntos de los que depende el análisis biomecánico; la cara y los dedos se
+# excluyen porque su visibilidad no afecta a los resultados.
+KEY_LANDMARKS: tuple[PoseLandmarkId, ...] = (
+    PoseLandmarkId.LEFT_WRIST,
+    PoseLandmarkId.RIGHT_WRIST,
+    PoseLandmarkId.LEFT_SHOULDER,
+    PoseLandmarkId.RIGHT_SHOULDER,
+    PoseLandmarkId.LEFT_HIP,
+    PoseLandmarkId.RIGHT_HIP,
+    PoseLandmarkId.LEFT_KNEE,
+    PoseLandmarkId.RIGHT_KNEE,
+    PoseLandmarkId.LEFT_ANKLE,
+    PoseLandmarkId.RIGHT_ANKLE,
+)
 
 @dataclass(frozen=True, slots=True)
 class PoseSequence:
@@ -53,6 +68,29 @@ class PoseSequence:
         size = max(3, round(self.fps * milliseconds / 1000))
         return size if size % 2 == 1 else size + 1
 
+
     def replacing_frames(self, frames: tuple[PoseFrame, ...]) -> PoseSequence:
         """Devuelve una secuencia nueva con los fotogramas indicados."""
         return PoseSequence(frames=frames, fps=self.fps)
+
+    
+    def tracking_quality(self, landmark_ids: Sequence[PoseLandmarkId]) -> float:
+        """Proporción de puntos relevantes detectados con alta confianza.
+
+        A diferencia de `detection_ratio`, que solo indica si hubo pose, esta
+        medida refleja la fiabilidad real del rastreo: el modelo devuelve una
+        pose casi siempre, aunque los puntos estén mal situados.
+        """
+        total = 0
+        reliable = 0
+
+        for frame in self.frames:
+            if not frame.is_detected:
+                total += len(landmark_ids)
+                continue
+            for landmark_id in landmark_ids:
+                total += 1
+                if frame.landmarks[landmark_id].confidence is ConfidenceLevel.HIGH:
+                    reliable += 1
+
+        return reliable / total if total else 0.0

@@ -104,6 +104,23 @@ class FakeTranscoder:
         return destination
 
 
+class FillingSmoother:
+    """Suavizador que reconstruye los fotogramas sin pose, como el real."""
+
+    def smooth(self, sequence: PoseSequence) -> PoseSequence:
+        reference = next(frame for frame in sequence.frames if frame.is_detected)
+        frames = tuple(
+            frame if frame.is_detected
+            else PoseFrame(
+                index=frame.index,
+                timestamp_ms=frame.timestamp_ms,
+                landmarks=reference.landmarks,
+            )
+            for frame in sequence.frames
+        )
+        return PoseSequence(frames=frames, fps=sequence.fps)
+
+
 @pytest.fixture
 def sample_video(tmp_path: Path) -> Path:
     path = tmp_path / "levantamiento.mp4"
@@ -116,7 +133,7 @@ def sample_video(tmp_path: Path) -> Path:
 
 def _service(
     transcoder: FakeTranscoder,
-    smoother: SpySmoother | None = None,
+    smoother: SpySmoother | FillingSmoother | None = None,
     renderer: FakeVideoRenderer | None = None,
     detected: int = FRAMES,
 ) -> AnalysisService:
@@ -203,3 +220,16 @@ def test_genera_la_grafica_de_velocidad(sample_video: Path, tmp_path: Path) -> N
 
     assert result.velocity_chart == workspace / "velocity.png"
     assert result.velocity_chart.is_file()
+
+
+def test_la_deteccion_se_mide_antes_de_interpolar(
+    sample_video: Path, tmp_path: Path
+) -> None:
+    """La interpolación no debe inflar la proporción de detección."""
+    service = _service(FakeTranscoder(), smoother=FillingSmoother(), detected=3)
+
+    result = service.analyze(sample_video, tmp_path / "job-1")
+
+    assert result.detected_frames == 3
+    assert result.detection_ratio == pytest.approx(0.6)
+    assert result.interpolated_frames == 2

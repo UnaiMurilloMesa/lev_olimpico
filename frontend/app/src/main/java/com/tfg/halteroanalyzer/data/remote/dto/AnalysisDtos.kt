@@ -27,6 +27,7 @@ data class AnalysisSummaryDto(
     @SerialName("peak_velocity_ms") val peakVelocityMs: Double,
     @SerialName("peak_velocity_time") val peakVelocityTime: Double,
     @SerialName("has_velocity_chart") val hasVelocityChart: Boolean,
+    @SerialName("interpolated_frames") val interpolatedFrames: Int,
 )
 
 /** Estado actual de un trabajo de análisis. */

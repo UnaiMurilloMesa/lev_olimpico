@@ -148,6 +148,15 @@ private fun SummaryContent(summary: AnalysisSummary) {
         MetricRow("Trayectoria de la barra", summary.barPathQuality.label())
         MetricRow("Desviación horizontal", "%.1f %%".format(summary.barPathDeviation * 100))
         MetricRow("Detección corporal", "%.0f %%".format(summary.detectionRatio * 100))
+        MetricRow("Detección corporal", "%.0f %%".format(summary.detectionRatio * 100))
+        if (summary.detectionRatio < 0.9) {
+            Text(
+                text = "El rastreo falló en parte del levantamiento. " +
+                        "Revisa que la grabación no tape ningún punto corporal.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
     }
 }
 

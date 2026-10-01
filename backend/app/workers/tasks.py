@@ -66,4 +66,5 @@ def analyze_lift(
         "peak_velocity_ms": result.peak_velocity_ms,
         "peak_velocity_time": result.peak_velocity_time,
         "has_velocity_chart": result.velocity_chart is not None,
+        "interpolated_frames": result.interpolated_frames,
     }

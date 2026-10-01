@@ -20,6 +20,7 @@ fun AnalysisSummaryDto.toDomain(): AnalysisSummary = AnalysisSummary(
     peakVelocityMs = peakVelocityMs,
     peakVelocityTime = peakVelocityTime,
     hasVelocityChart = hasVelocityChart,
+    interpolatedFrames = interpolatedFrames,
 )
 
 /** Convierte el estado recibido del backend al modelo de dominio. */

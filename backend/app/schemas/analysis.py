@@ -29,6 +29,9 @@ class AnalysisSummary(BaseModel):
     peak_velocity_ms: float = Field(description="Velocidad vertical máxima de la barra.")
     peak_velocity_time: float = Field(description="Instante de la velocidad máxima.")
     has_velocity_chart: bool = Field(description="Indica si hay gráfica de velocidad.")
+    interpolated_frames: int = Field(
+        description="Fotogramas cuya pose se reconstruyó por interpolación."
+    )
 
 
 class AnalysisStatusResponse(BaseModel):
