@@ -83,6 +83,9 @@ fun AnalysisScreen(viewModel: AnalysisViewModel, modifier: Modifier = Modifier) 
                 chart = state.chart,
                 snapshots = state.snapshots,
                 summary = state.summary,
+                saveState = state.saveState,
+                saveMessage = state.saveMessage,
+                onSave = viewModel::saveToGallery,
                 onRestart = viewModel::reset,
             )
 
@@ -125,6 +128,9 @@ private fun CompletedContent(
     chart: File?,
     snapshots: Map<String, File>,
     summary: AnalysisSummary?,
+    saveState: SaveState,
+    saveMessage: String?,
+    onSave: () -> Unit,
     onRestart: () -> Unit,
 ) {
     Text("Análisis completado", style = MaterialTheme.typography.titleLarge)
@@ -147,8 +153,44 @@ private fun CompletedContent(
         }
     }
 
+    SaveToGalleryButton(saveState, saveMessage, onSave)
+
     OutlinedButton(onClick = onRestart, modifier = Modifier.fillMaxWidth()) {
         Text("Analizar otro levantamiento")
+    }
+}
+
+@Composable
+private fun SaveToGalleryButton(
+    state: SaveState,
+    message: String?,
+    onSave: () -> Unit,
+) {
+    Button(
+        onClick = onSave,
+        enabled = state == SaveState.IDLE || state == SaveState.FAILED,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            when (state) {
+                SaveState.IDLE -> "Guardar vídeo en la galería"
+                SaveState.SAVING -> "Guardando…"
+                SaveState.SAVED -> "Guardado en la galería"
+                SaveState.FAILED -> "Reintentar guardado"
+            },
+        )
+    }
+
+    message?.let {
+        Text(
+            text = it,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (state == SaveState.FAILED) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            },
+        )
     }
 }
 

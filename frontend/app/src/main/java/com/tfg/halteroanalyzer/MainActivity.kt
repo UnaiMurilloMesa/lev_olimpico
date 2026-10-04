@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
                 override fun snapshotFor(jobId: String, name: String) =
                     File(cacheDir, "$jobId-$name")
             },
+            gallery = container.videoGallery
         )
 
         setContent {

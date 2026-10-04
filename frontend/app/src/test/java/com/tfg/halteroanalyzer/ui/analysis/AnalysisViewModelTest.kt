@@ -11,6 +11,7 @@ import com.tfg.halteroanalyzer.domain.PathQuality
 import com.tfg.halteroanalyzer.domain.VideoSource
 import com.tfg.halteroanalyzer.domain.Criterion
 import com.tfg.halteroanalyzer.domain.LiftPhase
+import com.tfg.halteroanalyzer.domain.SaveResult
 import com.tfg.halteroanalyzer.domain.ScoreLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +33,7 @@ import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.InputStream
 import kotlin.time.Duration.Companion.milliseconds
+import com.tfg.halteroanalyzer.domain.VideoGallery
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AnalysisViewModelTest {
@@ -276,6 +278,63 @@ class AnalysisViewModelTest {
         assertTrue(capturas.all { !it.exists() })
     }
 
+    @Test
+    fun `guarda el video analizado en la galeria`() = runTest(dispatcher) {
+        val gallery = FakeGallery()
+        val vm = viewModel(FakeRepository(), gallery)
+        prepare(vm)
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        vm.saveToGallery()
+        advanceUntilIdle()
+
+        assertEquals(1, gallery.saves)
+        assertEquals(SaveState.SAVED, (vm.uiState.value as AnalysisUiState.Completed).saveState)
+    }
+
+    @Test
+    fun `no guarda dos veces el mismo video`() = runTest(dispatcher) {
+        val gallery = FakeGallery()
+        val vm = viewModel(FakeRepository(), gallery)
+        prepare(vm)
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        vm.saveToGallery()
+        advanceUntilIdle()
+        vm.saveToGallery()
+        advanceUntilIdle()
+
+        assertEquals(1, gallery.saves)
+    }
+
+    @Test
+    fun `un fallo al guardar permite reintentar`() = runTest(dispatcher) {
+        val gallery = FakeGallery(SaveResult.Failed("Sin espacio"))
+        val vm = viewModel(FakeRepository(), gallery)
+        prepare(vm)
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        vm.saveToGallery()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value as AnalysisUiState.Completed
+        assertEquals(SaveState.FAILED, state.saveState)
+        assertEquals("Sin espacio", state.saveMessage)
+    }
+
+    @Test
+    fun `sin analisis completado no se guarda nada`() = runTest(dispatcher) {
+        val gallery = FakeGallery()
+
+        viewModel(FakeRepository(), gallery).saveToGallery()
+        advanceUntilIdle()
+
+        assertEquals(0, gallery.saves)
+    }
+
     // --- Utilidades ---
 
     /** Deja el ViewModel listo para lanzar un análisis. */
@@ -284,7 +343,10 @@ class AnalysisViewModelTest {
         vm.onVideoDurationKnown(duration)
     }
 
-    private fun viewModel(repository: FakeRepository) = AnalysisViewModel(
+    private fun viewModel(
+        repository: FakeRepository,
+        gallery: FakeGallery = FakeGallery(),
+    ) = AnalysisViewModel(
         repository = repository,
         poller = AnalysisStatusPoller(repository, pollInterval = 10.milliseconds),
         videoSourceProvider = { FakeVideoSource() },
@@ -294,6 +356,7 @@ class AnalysisViewModelTest {
             override fun snapshotFor(jobId: String, name: String): File =
                 tempFolder.newFile("$jobId-$name")
         },
+        gallery = gallery,
     )
 
     private class FakeVideoSource : VideoSource {
@@ -401,5 +464,20 @@ class AnalysisViewModelTest {
                 ),
             ),
         )
+    }
+
+    private class FakeGallery(
+        private val result: SaveResult = SaveResult.Saved,
+    ) : VideoGallery {
+        var saves = 0
+            private set
+        var lastName: String? = null
+            private set
+
+        override suspend fun save(video: File, displayName: String): SaveResult {
+            saves++
+            lastName = displayName
+            return result
+        }
     }
 }

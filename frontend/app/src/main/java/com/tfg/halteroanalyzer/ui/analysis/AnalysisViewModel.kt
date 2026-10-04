@@ -8,6 +8,7 @@ import com.tfg.halteroanalyzer.domain.AnalysisRequest
 import com.tfg.halteroanalyzer.domain.AnalysisState
 import com.tfg.halteroanalyzer.domain.AnalysisStatusPoller
 import com.tfg.halteroanalyzer.domain.JobStatus
+import com.tfg.halteroanalyzer.domain.VideoGallery
 import com.tfg.halteroanalyzer.domain.VideoSource
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
+import com.tfg.halteroanalyzer.domain.SaveResult
 
 /** Crea los ficheros locales donde se guardan los artefactos de un trabajo. */
 interface ResultFileProvider {
@@ -29,6 +31,7 @@ class AnalysisViewModel(
     private val poller: AnalysisStatusPoller,
     private val videoSourceProvider: (String) -> VideoSource,
     private val resultFileProvider: ResultFileProvider,
+    private val gallery: VideoGallery,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<AnalysisUiState>(AnalysisUiState.Idle)
@@ -84,6 +87,29 @@ class AnalysisViewModel(
             viewModelScope.launch { repository.delete(current.jobId) }
         }
         _uiState.value = AnalysisUiState.Idle
+    }
+
+    /** Guarda el vídeo analizado en la galería del dispositivo. */
+    fun saveToGallery() {
+        val current = _uiState.value as? AnalysisUiState.Completed ?: return
+        if (current.saveState == SaveState.SAVING || current.saveState == SaveState.SAVED) return
+
+        _uiState.value = current.copy(saveState = SaveState.SAVING, saveMessage = null)
+
+        viewModelScope.launch {
+            val name = "haltero_${current.jobId.take(8)}.mp4"
+            when (val result = gallery.save(current.video, name)) {
+                is SaveResult.Saved -> updateSave(SaveState.SAVED, "Guardado en la galería.")
+                is SaveResult.Failed -> updateSave(SaveState.FAILED, result.reason)
+                is SaveResult.PermissionRequired ->
+                    updateSave(SaveState.FAILED, "Concede permiso de almacenamiento para guardar.")
+            }
+        }
+    }
+
+    private fun updateSave(state: SaveState, message: String) {
+        val current = _uiState.value as? AnalysisUiState.Completed ?: return
+        _uiState.value = current.copy(saveState = state, saveMessage = message)
     }
 
     private suspend fun trackProgress(jobId: String) {
@@ -168,6 +194,7 @@ class AnalysisViewModel(
         private val repository: AnalysisRepository,
         private val videoSourceProvider: (String) -> VideoSource,
         private val resultFileProvider: ResultFileProvider,
+        private val gallery: VideoGallery,
     ) : ViewModelProvider.Factory {
 
         @Suppress("UNCHECKED_CAST")
@@ -176,6 +203,7 @@ class AnalysisViewModel(
             poller = AnalysisStatusPoller(repository),
             videoSourceProvider = videoSourceProvider,
             resultFileProvider = resultFileProvider,
+            gallery = gallery,
         ) as T
     }
 }

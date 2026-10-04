@@ -4,6 +4,16 @@ import com.tfg.halteroanalyzer.domain.AnalysisRequest
 import com.tfg.halteroanalyzer.domain.AnalysisSummary
 import java.io.File
 
+
+/** Estado del guardado del vídeo en la galería. */
+enum class SaveState {
+    IDLE,
+    SAVING,
+    SAVED,
+    FAILED,
+}
+
+
 /** Estado de la pantalla de análisis. */
 sealed interface AnalysisUiState {
 
@@ -40,6 +50,8 @@ sealed interface AnalysisUiState {
         val chart: File?,
         val snapshots: Map<String, File>,
         val summary: AnalysisSummary?,
+        val saveState: SaveState = SaveState.IDLE,
+        val saveMessage: String? = null,
     ) : AnalysisUiState
 
     /** Algo falló; se ofrece reintentar. */
