@@ -13,6 +13,7 @@ from app.domain.phase_detection import detect_phases
 from app.domain.phases import PhaseBreakdown
 from app.domain.scale import estimate_scale
 from app.domain.sequence import KEY_LANDMARKS, PoseSequence
+from app.services.analysis.phase_scoring import LiftScore, score_lift
 from app.services.analysis.velocity import BarVelocity, compute_bar_velocity
 from app.services.analysis.velocity_chart import VelocityChartRenderer
 from app.services.pose.smoother import PoseSmoother
@@ -32,6 +33,17 @@ DEFAULT_ATHLETE_HEIGHT_M = 1.75
 
 
 @dataclass(frozen=True, slots=True)
+class CriterionResult:
+    """Criterio evaluado dentro de una fase."""
+
+    criterion: str
+    score: float
+    level: str
+    measured_value: float
+    explanation: str
+
+
+@dataclass(frozen=True, slots=True)
 class PhaseResult:
     """Resumen de una fase del levantamiento."""
 
@@ -41,6 +53,9 @@ class PhaseResult:
     end_seconds: float
     duration_seconds: float
     snapshot: str | None
+    score: float
+    level: str
+    criteria: tuple[CriterionResult, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +78,7 @@ class AnalysisResult:
     velocity_chart: Path | None
     athlete_height_m: float
     phases: tuple[PhaseResult, ...]
+    overall_score: float
 
 
 class AnalysisService:
@@ -136,6 +152,7 @@ class AnalysisService:
         )
 
         velocity, chart = self._compute_velocity(smoothed, lift, workspace, athlete_height_m)
+        scoring = score_lift(lift, breakdown, velocity)
 
         self._video_renderer.render(source, raw_output, smoothed, metadata, lift)
         self._transcoder.to_android_compatible(raw_output, final_output)
@@ -153,6 +170,7 @@ class AnalysisService:
             athlete_height_m=athlete_height_m,
             breakdown=breakdown,
             snapshots=snapshots,
+            scoring=scoring,
         )
 
     def _compute_velocity(
@@ -190,6 +208,7 @@ class AnalysisService:
         athlete_height_m: float,
         breakdown: PhaseBreakdown,
         snapshots: tuple[PhaseSnapshot, ...],
+        scoring: LiftScore,
     ) -> AnalysisResult:
         """Compone el resumen del análisis a partir del tramo acotado.
 
@@ -214,31 +233,55 @@ class AnalysisService:
             peak_velocity_time=round(velocity.peak_time_seconds, 2),
             velocity_chart=chart,
             athlete_height_m=athlete_height_m,
-            phases=self._build_phases(breakdown, snapshots, full.fps, window.start_index),
+            phases=self._build_phases(
+                breakdown, snapshots, scoring, full.fps, window.start_index
+            ),
+            overall_score=scoring.overall,
         )
+
 
     @staticmethod
     def _build_phases(
         breakdown: PhaseBreakdown,
         snapshots: tuple[PhaseSnapshot, ...],
+        scoring: LiftScore,
         fps: float,
         window_start: int,
     ) -> tuple[PhaseResult, ...]:
-        """Compone el resumen de cada fase con su captura asociada.
+        """Compone el resumen de cada fase con su captura y su puntuación.
 
         Los instantes se expresan desde el despegue de la barra, no desde el
         inicio del vídeo, que es como el usuario percibe el movimiento.
         """
         by_phase = {shot.phase: shot for shot in snapshots}
+        scores = {phase.phase: phase for phase in scoring.phases}
 
-        return tuple(
-            PhaseResult(
-                phase=span.phase.value,
-                label=span.phase.label,
-                start_seconds=round((span.start_index - window_start) / fps, 2),
-                end_seconds=round((span.end_index - window_start) / fps, 2),
-                duration_seconds=round(span.duration_seconds(fps), 2),
-                snapshot=by_phase[span.phase].path.name if span.phase in by_phase else None,
+        results: list[PhaseResult] = []
+        for span in breakdown.spans:
+            score = scores.get(span.phase.value)
+            results.append(
+                PhaseResult(
+                    phase=span.phase.value,
+                    label=span.phase.label,
+                    start_seconds=round((span.start_index - window_start) / fps, 2),
+                    end_seconds=round((span.end_index - window_start) / fps, 2),
+                    duration_seconds=round(span.duration_seconds(fps), 2),
+                    snapshot=(
+                        by_phase[span.phase].path.name if span.phase in by_phase else None
+                    ),
+                    score=score.score if score else 0.0,
+                    level=score.level.value if score and score.criteria else "unknown",
+                    criteria=tuple(
+                        CriterionResult(
+                            criterion=item.criterion,
+                            score=item.score,
+                            level=item.level.value,
+                            measured_value=item.measured_value,
+                            explanation=item.explanation,
+                        )
+                        for item in (score.criteria if score else ())
+                    ),
+                )
             )
-            for span in breakdown.spans
-        )
+
+        return tuple(results)

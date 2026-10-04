@@ -271,3 +271,10 @@ def test_divide_el_analisis_en_cinco_fases(sample_video: Path, tmp_path: Path) -
     assert len(result.phases) == 5
     assert result.phases[0].phase == "first_pull"
     assert all(phase.snapshot for phase in result.phases)
+
+
+def test_puntua_el_levantamiento(sample_video: Path, tmp_path: Path) -> None:
+    result = _service(FakeTranscoder()).analyze(sample_video, tmp_path / "job-1")
+
+    assert 0.0 <= result.overall_score <= 10.0
+    assert all(phase.level for phase in result.phases)

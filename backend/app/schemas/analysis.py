@@ -13,6 +13,16 @@ class AnalysisCreatedResponse(BaseModel):
     lift_type: LiftType = Field(description="Modalidad de levantamiento analizada.")
 
 
+class CriterionSummary(BaseModel):
+    """Criterio evaluado dentro de una fase."""
+
+    criterion: str = Field(description="Aspecto evaluado.")
+    score: float = Field(description="Puntuación de 0 a 10.")
+    level: str = Field(description="Valoración cualitativa del criterio.")
+    measured_value: float = Field(description="Valor medido que origina la puntuación.")
+    explanation: str = Field(description="Explicación de la puntuación en lenguaje natural.")
+
+
 class PhaseSummary(BaseModel):
     """Resumen de una fase del levantamiento."""
 
@@ -22,6 +32,11 @@ class PhaseSummary(BaseModel):
     end_seconds: float = Field(description="Fin de la fase desde el despegue.")
     duration_seconds: float = Field(description="Duración de la fase.")
     snapshot: str | None = Field(default=None, description="Nombre de la captura asociada.")
+    score: float = Field(default=0.0, description="Puntuación de la fase.")
+    level: str = Field(default="unknown", description="Valoración cualitativa de la fase.")
+    criteria: list[CriterionSummary] = Field(
+        default_factory=list, description="Criterios evaluados en la fase."
+    )
 
 
 class AnalysisSummary(BaseModel):
@@ -48,6 +63,7 @@ class AnalysisSummary(BaseModel):
     phases: list[PhaseSummary] = Field(
         default_factory=list, description="División del levantamiento en fases."
     )
+    overall_score: float = Field(default=0.0, description="Puntuación global del levantamiento.")
 
 
 class AnalysisStatusResponse(BaseModel):

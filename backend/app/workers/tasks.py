@@ -57,6 +57,7 @@ def analyze_lift(
         "processed_frames": result.processed_frames,
         "detected_frames": result.detected_frames,
         "detection_ratio": round(result.detection_ratio, 4),
+        "interpolated_frames": result.interpolated_frames,
         "duration_seconds": round(result.duration_seconds, 2),
         "bar_path_deviation": result.bar_path_deviation,
         "bar_path_quality": result.bar_path_quality,
@@ -66,7 +67,7 @@ def analyze_lift(
         "peak_velocity_ms": result.peak_velocity_ms,
         "peak_velocity_time": result.peak_velocity_time,
         "has_velocity_chart": result.velocity_chart is not None,
-        "interpolated_frames": result.interpolated_frames,
+        "overall_score": result.overall_score,
         "phases": [
             {
                 "phase": phase.phase,
@@ -75,6 +76,18 @@ def analyze_lift(
                 "end_seconds": phase.end_seconds,
                 "duration_seconds": phase.duration_seconds,
                 "snapshot": phase.snapshot,
+                "score": phase.score,
+                "level": phase.level,
+                "criteria": [
+                    {
+                        "criterion": item.criterion,
+                        "score": item.score,
+                        "level": item.level,
+                        "measured_value": item.measured_value,
+                        "explanation": item.explanation,
+                    }
+                    for item in phase.criteria
+                ],
             }
             for phase in result.phases
         ],
