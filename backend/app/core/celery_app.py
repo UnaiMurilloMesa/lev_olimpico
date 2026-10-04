@@ -24,3 +24,10 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,
     task_acks_late=True,
 )
+
+celery_app.conf.beat_schedule = {
+    "limpieza-de-espacios-caducados": {
+        "task": "tasks.cleanup_workspaces",
+        "schedule": float(settings.cleanup_interval_seconds),
+    },
+}

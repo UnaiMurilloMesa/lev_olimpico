@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.domain.job import JobStatus
 from app.services.factory import build_analysis_service
 from app.services.workspace import JobWorkspace
+from app.services.cleanup import WorkspaceCleaner
 
 logger = logging.getLogger(__name__)
 
@@ -91,4 +92,25 @@ def analyze_lift(
             }
             for phase in result.phases
         ],
+    }
+
+
+@celery_app.task(name="tasks.cleanup_workspaces")
+def cleanup_workspaces() -> dict[str, Any]:
+    """Elimina los espacios de trabajo que han superado su tiempo de vida."""
+    settings = get_settings()
+    cleaner = WorkspaceCleaner(settings.storage_dir, settings.workspace_max_age_seconds)
+    report = cleaner.clean()
+
+    if report.removed:
+        logger.info(
+            "Limpieza: %d espacios eliminados, %.2f MB liberados",
+            report.removed,
+            report.freed_megabytes,
+        )
+
+    return {
+        "inspected": report.inspected,
+        "removed": report.removed,
+        "freed_megabytes": report.freed_megabytes,
     }

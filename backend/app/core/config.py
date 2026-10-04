@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://redis:6379/1"
     job_ttl_seconds: int = 60 * 30
 
+    # --- Limpieza ---
+    workspace_max_age_seconds: int = 60 * 60  # 1 hora
+    cleanup_interval_seconds: int = 60 * 10   # Cada 10 minutos
+
     @property
     def pose_model_path(self) -> Path:
         """Ruta absoluta al modelo .task de MediaPipe."""
