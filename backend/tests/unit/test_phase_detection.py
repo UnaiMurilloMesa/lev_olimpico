@@ -86,8 +86,9 @@ def test_detecta_cuando_la_barra_alcanza_la_rodilla() -> None:
 
     indice = find_knee_pass(_sequence(frames), PhaseDetectionConfig())
 
-    # bar_y alcanza 0.72 (dentro de la tolerancia de 0.02) en el fotograma 8.
-    assert indice == 8
+    # Con tolerancia -0.02 la barra debe superar la rodilla: bar_y llega a 0.68
+    # en el fotograma 9.
+    assert indice == 9
 
 
 def test_sin_paso_por_la_rodilla_no_hay_evento() -> None:
@@ -255,3 +256,14 @@ def test_sin_descenso_devuelve_el_punto_mas_alto() -> None:
     frames = [_frame(i, bar_y=y) for i, y in enumerate(alturas)]
 
     assert find_bar_peak(_sequence(frames), after_index=-1) == 4
+
+
+def test_la_tolerancia_negativa_exige_superar_la_rodilla() -> None:
+    """Las muñecas quedan por encima de la barra, de ahí el margen negativo."""
+    frames = [_frame(i, bar_y=0.95 - 0.03 * i, knee_y=0.70) for i in range(15)]
+
+    neutra = find_knee_pass(_sequence(frames), PhaseDetectionConfig(knee_tolerance=0.0))
+    exigente = find_knee_pass(_sequence(frames), PhaseDetectionConfig(knee_tolerance=-0.05))
+
+    assert neutra is not None and exigente is not None
+    assert exigente > neutra

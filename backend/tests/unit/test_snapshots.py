@@ -105,3 +105,12 @@ def test_un_video_inexistente_falla(tmp_path: Path) -> None:
 
     with pytest.raises(VideoProcessingError):
         _extractor().extract(tmp_path / "no.mp4", tmp_path / "shots", _lift(), breakdown)
+
+
+def test_genera_captura_para_fases_que_comparten_inicio(video: Path, tmp_path: Path) -> None:
+    """Dos eventos detectados en el mismo fotograma no deben perder capturas."""
+    breakdown = build_breakdown(LiftWindow(0, 29), (5, 11, 17, 17))
+
+    snapshots = _extractor().extract(video, tmp_path / "shots", _lift(), breakdown)
+
+    assert len(snapshots) == 5

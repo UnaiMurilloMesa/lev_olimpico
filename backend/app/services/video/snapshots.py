@@ -72,7 +72,9 @@ class PhaseSnapshotExtractor:
         destination_dir.mkdir(parents=True, exist_ok=True)
         renderer: FrameRenderer = self._renderer_factory(lift)
 
-        wanted = {span.start_index: span.phase for span in breakdown.spans}
+        wanted: dict[int, list[LiftPhase]] = {}
+        for span in breakdown.spans:
+            wanted.setdefault(span.start_index, []).append(span.phase)
         poses = {frame.index: frame for frame in lift.frames}
         step = frame_step_for(sanitize_fps(capture.get(cv2.CAP_PROP_FPS)))
 
@@ -86,17 +88,17 @@ class PhaseSnapshotExtractor:
                 break
 
             if read_index % step == 0:
-                phase = wanted.pop(sequence_index, None)
-                if phase is not None and sequence_index in poses:
-                    snapshots.append(
-                        self._save(
-                            renderer.render(frame, poses[sequence_index]),
-                            destination_dir,
-                            phase,
-                            sequence_index,
-                            lift.fps,
+                for phase in wanted.pop(sequence_index, []):
+                    if sequence_index in poses:
+                        snapshots.append(
+                            self._save(
+                                renderer.render(frame, poses[sequence_index]),
+                                destination_dir,
+                                phase,
+                                sequence_index,
+                                lift.fps,
+                            )
                         )
-                    )
                 sequence_index += 1
 
             read_index += 1
