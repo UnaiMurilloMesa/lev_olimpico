@@ -18,10 +18,9 @@ from app.services.video.metadata import (
     sanitize_fps,
 )
 
-logger = logging.getLogger(__name__)
-
 RendererFactory = Callable[[PoseSequence], FrameRenderer]
 
+logger = logging.getLogger(__name__)
 
 class PoseVideoRenderer:
     """Vuelve a recorrer el vídeo y dibuja sobre él la secuencia suavizada."""

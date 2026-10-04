@@ -65,6 +65,7 @@ def _resumen(**overrides: object) -> dict[str, object]:
         "peak_velocity_time": 0.65,
         "has_velocity_chart": True,
         "interpolated_frames": 2,
+        "phases": []
     }
     return base | overrides
 

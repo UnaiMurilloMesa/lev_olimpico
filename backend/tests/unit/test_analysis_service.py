@@ -7,10 +7,12 @@ import numpy as np
 import pytest
 
 from app.domain.landmarks import Landmark, PoseFrame, PoseLandmarkId
+from app.domain.phases import PhaseBreakdown
 from app.domain.sequence import PoseSequence
 from app.services.analysis.velocity import BarVelocity
 from app.services.analysis_service import FINAL_OUTPUT_NAME, AnalysisService
 from app.services.video.metadata import VideoMetadata
+from app.services.video.snapshots import PhaseSnapshot
 
 FRAMES = 5
 
@@ -121,6 +123,32 @@ class FillingSmoother:
         return PoseSequence(frames=frames, fps=sequence.fps)
 
 
+class FakeSnapshotExtractor:
+    """Extractor que crea una imagen vacía por fase."""
+
+    def extract(
+        self,
+        source: Path,
+        destination_dir: Path,
+        lift: PoseSequence,
+        breakdown: PhaseBreakdown,
+    ) -> tuple[PhaseSnapshot, ...]:
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        shots = []
+        for span in breakdown.spans:
+            path = destination_dir / f"{span.phase.value}.jpg"
+            path.write_bytes(b"jpg")
+            shots.append(
+                PhaseSnapshot(
+                    phase=span.phase,
+                    frame_index=span.start_index,
+                    time_seconds=span.start_index / lift.fps,
+                    path=path,
+                )
+            )
+        return tuple(shots)
+
+
 @pytest.fixture
 def sample_video(tmp_path: Path) -> Path:
     path = tmp_path / "levantamiento.mp4"
@@ -136,6 +164,7 @@ def _service(
     smoother: SpySmoother | FillingSmoother | None = None,
     renderer: FakeVideoRenderer | None = None,
     detected: int = FRAMES,
+    snapshot_extractor: FakeSnapshotExtractor | None = None,
 ) -> AnalysisService:
     return AnalysisService(
         extractor=FakeExtractor(detected),
@@ -143,6 +172,7 @@ def _service(
         video_renderer=renderer or FakeVideoRenderer(),
         transcoder=transcoder,
         chart_renderer=FakeChartRenderer(),
+        snapshot_extractor=snapshot_extractor or FakeSnapshotExtractor(),
     )
 
 
@@ -233,3 +263,11 @@ def test_la_deteccion_se_mide_antes_de_interpolar(
     assert result.detected_frames == 3
     assert result.detection_ratio == pytest.approx(0.6)
     assert result.interpolated_frames == 2
+
+
+def test_divide_el_analisis_en_cinco_fases(sample_video: Path, tmp_path: Path) -> None:
+    result = _service(FakeTranscoder()).analyze(sample_video, tmp_path / "job-1")
+
+    assert len(result.phases) == 5
+    assert result.phases[0].phase == "first_pull"
+    assert all(phase.snapshot for phase in result.phases)

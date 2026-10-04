@@ -14,6 +14,7 @@ from app.services.pose.estimator import MediaPipePoseEstimator
 from app.services.pose.smoother import SavitzkyGolaySmoother
 from app.services.video.extractor import PoseExtractor
 from app.services.video.renderer import PoseVideoRenderer
+from app.services.video.snapshots import PhaseSnapshotExtractor
 from app.services.video.transcoder import FfmpegTranscoder
 
 pytestmark = pytest.mark.slow
@@ -30,7 +31,7 @@ def settings():
 def synthetic_video(tmp_path: Path) -> Path:
     """Vídeo sintético sin personas: válido para ejercitar el pipeline."""
     path = tmp_path / "prueba.mp4"
-    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), FPS, (WIDTH, HEIGHT))
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*"mp4v"), FPS, (WIDTH, HEIGHT))
     for i in range(FRAMES):
         frame = np.full((HEIGHT, WIDTH, 3), (i * 8) % 256, dtype=np.uint8)
         writer.write(frame)
@@ -56,11 +57,15 @@ def test_el_pipeline_completo_genera_un_video_reproducible(
             video_renderer=PoseVideoRenderer(build_frame_renderer),
             transcoder=FfmpegTranscoder(),
             chart_renderer=MatplotlibVelocityChart(),
+            snapshot_extractor=PhaseSnapshotExtractor(build_frame_renderer),
         )
         result = service.analyze(synthetic_video, tmp_path / "job-integracion")
 
     assert result.processed_frames == FRAMES
     assert result.video_path.is_file()
+    assert len(result.phases) == 5
+    for phase in result.phases:
+        assert phase.end_seconds >= phase.start_seconds
 
     capture = cv2.VideoCapture(str(result.video_path))
     try:

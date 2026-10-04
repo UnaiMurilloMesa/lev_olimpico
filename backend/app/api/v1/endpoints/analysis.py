@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import JobRegistryDep, SettingsDep, UploadValidatorDep
 from app.domain.job import AnalysisJob, JobStatus, LiftType
+from app.domain.phases import LiftPhase
 from app.schemas.analysis import (
     AnalysisCreatedResponse,
     AnalysisStatusResponse,
@@ -25,6 +26,8 @@ router = APIRouter(prefix="/analyses", tags=["analyses"])
 
 RESULT_VIDEO_NAME = "analysis.mp4"
 CHART_IMAGE_NAME = "velocity.png"
+SNAPSHOTS_DIR = "phases"
+ALLOWED_SNAPSHOTS = frozenset(f"{phase.value}.jpg" for phase in LiftPhase)
 
 
 @router.post(
@@ -120,3 +123,27 @@ def download_velocity_chart(job_id: str, settings: SettingsDep) -> FileResponse:
         )
 
     return FileResponse(path=chart_path, media_type="image/png", filename=CHART_IMAGE_NAME)
+
+
+@router.get("/{job_id}/phases/{name}", response_class=FileResponse)
+def download_phase_snapshot(job_id: str, name: str, settings: SettingsDep) -> FileResponse:
+    """Devuelve la captura de una fase concreta.
+
+    Raises:
+        HTTPException: Si el nombre no corresponde a una fase o la captura no existe.
+    """
+    if name not in ALLOWED_SNAPSHOTS:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Captura no reconocida."
+        )
+
+    workspace = JobWorkspace(settings.storage_dir, job_id)
+    path = workspace.result_path(SNAPSHOTS_DIR) / name
+
+    if not path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="La captura no está disponible para este trabajo.",
+        )
+
+    return FileResponse(path=path, media_type="image/jpeg", filename=name)

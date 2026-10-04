@@ -14,6 +14,7 @@ from app.services.pose.renderer import FrameRenderer, SkeletonRenderer
 from app.services.pose.smoother import SavitzkyGolaySmoother
 from app.services.video.extractor import PoseExtractor
 from app.services.video.renderer import PoseVideoRenderer
+from app.services.video.snapshots import PhaseSnapshotExtractor
 from app.services.video.transcoder import FfmpegTranscoder
 
 
@@ -37,4 +38,5 @@ def build_analysis_service(settings: Settings) -> AnalysisService:
         video_renderer=PoseVideoRenderer(build_frame_renderer),
         transcoder=FfmpegTranscoder(),
         chart_renderer=MatplotlibVelocityChart(),
+        snapshot_extractor=PhaseSnapshotExtractor(build_frame_renderer),
     )
