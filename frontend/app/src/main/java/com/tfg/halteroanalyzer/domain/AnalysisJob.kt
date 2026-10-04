@@ -30,6 +30,30 @@ enum class PathQuality {
     }
 }
 
+/** Valoración cualitativa de una puntuación. */
+enum class ScoreLevel {
+    GOOD,
+    FAIR,
+    POOR,
+    UNKNOWN;
+
+    companion object {
+        private const val GOOD_THRESHOLD = 7.0
+        private const val FAIR_THRESHOLD = 5.0
+
+        /** Traduce el valor recibido del backend sin fallar ante valores nuevos. */
+        fun fromApi(value: String): ScoreLevel =
+            entries.firstOrNull { it.name.equals(value, ignoreCase = true) } ?: UNKNOWN
+
+        /** Clasifica una puntuación numérica, con los mismos umbrales del backend. */
+        fun fromScore(score: Double): ScoreLevel = when {
+            score >= GOOD_THRESHOLD -> GOOD
+            score >= FAIR_THRESHOLD -> FAIR
+            else -> POOR
+        }
+    }
+}
+
 /** Resumen de un análisis completado. */
 data class AnalysisSummary(
     val videoName: String,
@@ -46,6 +70,8 @@ data class AnalysisSummary(
     val peakVelocityTime: Double,
     val hasVelocityChart: Boolean,
     val interpolatedFrames: Int,
+    val overallScore: Double,
+    val phases: List<LiftPhase>,
 )
 
 /** Estado de un análisis en curso o terminado. */
@@ -55,3 +81,29 @@ data class AnalysisState(
     val detail: String? = null,
     val summary: AnalysisSummary? = null,
 )
+
+/** Criterio evaluado dentro de una fase. */
+data class Criterion(
+    val criterion: String,
+    val score: Double,
+    val level: ScoreLevel,
+    val measuredValue: Double,
+    val explanation: String,
+)
+
+/** Fase del levantamiento con su valoración. */
+data class LiftPhase(
+    val id: String,
+    val label: String,
+    val startSeconds: Double,
+    val endSeconds: Double,
+    val durationSeconds: Double,
+    val snapshot: String?,
+    val score: Double,
+    val level: ScoreLevel,
+    val criteria: List<Criterion>,
+) {
+    /** Indica si la fase llegó a evaluarse. */
+    val isScored: Boolean
+        get() = criteria.isNotEmpty()
+}

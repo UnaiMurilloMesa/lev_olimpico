@@ -28,6 +28,8 @@ class MainActivity : ComponentActivity() {
             resultFileProvider = object : ResultFileProvider {
                 override fun videoFor(jobId: String) = File(cacheDir, "$jobId.mp4")
                 override fun chartFor(jobId: String) = File(cacheDir, "$jobId.png")
+                override fun snapshotFor(jobId: String, name: String) =
+                    File(cacheDir, "$jobId-$name")
             },
         )
 

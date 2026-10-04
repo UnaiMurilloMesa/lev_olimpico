@@ -39,4 +39,11 @@ interface AnalysisApi {
 
     @DELETE("api/v1/analyses/{jobId}")
     suspend fun deleteAnalysis(@Path("jobId") jobId: String): Response<Unit>
+
+    @Streaming
+    @GET("api/v1/analyses/{jobId}/phases/{name}")
+    suspend fun downloadSnapshot(
+        @Path("jobId") jobId: String,
+        @Path("name") name: String,
+    ): ResponseBody
 }

@@ -20,6 +20,7 @@ import java.io.File
 interface ResultFileProvider {
     fun videoFor(jobId: String): File
     fun chartFor(jobId: String): File
+    fun snapshotFor(jobId: String, name: String): File
 }
 
 /** Coordina la selección, preparación, envío y seguimiento de un análisis. */
@@ -79,6 +80,7 @@ class AnalysisViewModel(
         if (current is AnalysisUiState.Completed) {
             current.video.delete()
             current.chart?.delete()
+            current.snapshots.values.forEach { it.delete() }
             viewModelScope.launch { repository.delete(current.jobId) }
         }
         _uiState.value = AnalysisUiState.Idle
@@ -112,15 +114,38 @@ class AnalysisViewModel(
             .downloadVideo(jobId, resultFileProvider.videoFor(jobId))
             .getOrElse { error -> return fail(error) }
 
-        // La gráfica es prescindible: si falla su descarga, el resto del
-        // análisis sigue siendo útil para el usuario.
+        // La gráfica y las capturas son prescindibles: si falla su descarga, el
+        // resto del análisis sigue siendo útil para el usuario.
         val chart = if (state.summary?.hasVelocityChart == true) {
             repository.downloadChart(jobId, resultFileProvider.chartFor(jobId)).getOrNull()
         } else {
             null
         }
 
-        _uiState.value = AnalysisUiState.Completed(jobId, video, chart, state.summary)
+        _uiState.value = AnalysisUiState.Completed(
+            jobId = jobId,
+            video = video,
+            chart = chart,
+            snapshots = downloadSnapshots(jobId, state),
+            summary = state.summary,
+        )
+    }
+
+    private suspend fun downloadSnapshots(
+        jobId: String,
+        state: AnalysisState,
+    ): Map<String, File> {
+        val phases = state.summary?.phases.orEmpty()
+        val downloaded = mutableMapOf<String, File>()
+
+        for (phase in phases) {
+            val name = phase.snapshot ?: continue
+            repository
+                .downloadSnapshot(jobId, name, resultFileProvider.snapshotFor(jobId, name))
+                .onSuccess { file -> downloaded[phase.id] = file }
+        }
+
+        return downloaded
     }
 
     private fun updatePreparing(

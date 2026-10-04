@@ -68,6 +68,18 @@ class RemoteAnalysisRepository(
             destination
         }
 
+    override suspend fun downloadSnapshot(
+        jobId: String,
+        name: String,
+        destination: File,
+    ): Result<File> =
+        safeCall {
+            api.downloadSnapshot(jobId, name).use { body ->
+                destination.outputStream().use { output -> body.byteStream().copyTo(output) }
+            }
+            destination
+        }
+
     private suspend fun <T> safeCall(block: suspend () -> T): Result<T> =
         withContext(ioDispatcher) {
             try {

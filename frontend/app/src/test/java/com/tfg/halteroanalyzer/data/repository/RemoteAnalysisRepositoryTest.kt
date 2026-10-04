@@ -159,6 +159,19 @@ class RemoteAnalysisRepositoryTest {
         assertArrayEquals(contenido, destino.readBytes())
     }
 
+    @Test
+    fun `descarga la captura de una fase`() = runTest {
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(byteArrayOf(1, 2))))
+        val destino = tempFolder.newFile("first_pull.jpg")
+
+        repository.downloadSnapshot("abc", "first_pull.jpg", destino).getOrThrow()
+
+        assertEquals(
+            "/api/v1/analyses/abc/phases/first_pull.jpg",
+            server.takeRequest().path,
+        )
+    }
+
     private fun json(code: Int, body: String) =
         MockResponse()
             .setResponseCode(code)

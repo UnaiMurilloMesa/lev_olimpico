@@ -28,6 +28,8 @@ data class AnalysisSummaryDto(
     @SerialName("peak_velocity_time") val peakVelocityTime: Double,
     @SerialName("has_velocity_chart") val hasVelocityChart: Boolean,
     @SerialName("interpolated_frames") val interpolatedFrames: Int,
+    @SerialName("overall_score") val overallScore: Double = 0.0,
+    @SerialName("phases") val phases: List<PhaseDto> = emptyList(),
 )
 
 /** Estado actual de un trabajo de análisis. */
@@ -37,4 +39,28 @@ data class AnalysisStatusDto(
     @SerialName("status") val status: String,
     @SerialName("detail") val detail: String? = null,
     @SerialName("result") val result: AnalysisSummaryDto? = null,
+)
+
+/** Criterio evaluado dentro de una fase. */
+@Serializable
+data class CriterionDto(
+    @SerialName("criterion") val criterion: String,
+    @SerialName("score") val score: Double,
+    @SerialName("level") val level: String,
+    @SerialName("measured_value") val measuredValue: Double,
+    @SerialName("explanation") val explanation: String,
+)
+
+/** Fase del levantamiento con su puntuación y su captura. */
+@Serializable
+data class PhaseDto(
+    @SerialName("phase") val phase: String,
+    @SerialName("label") val label: String,
+    @SerialName("start_seconds") val startSeconds: Double,
+    @SerialName("end_seconds") val endSeconds: Double,
+    @SerialName("duration_seconds") val durationSeconds: Double,
+    @SerialName("snapshot") val snapshot: String? = null,
+    @SerialName("score") val score: Double = 0.0,
+    @SerialName("level") val level: String = "unknown",
+    @SerialName("criteria") val criteria: List<CriterionDto> = emptyList(),
 )

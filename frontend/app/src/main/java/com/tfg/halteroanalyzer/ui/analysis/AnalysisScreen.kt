@@ -31,6 +31,11 @@ import android.graphics.BitmapFactory
 import com.tfg.halteroanalyzer.domain.AnalysisSummary
 import com.tfg.halteroanalyzer.domain.PathQuality
 import java.io.File
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Card
+import androidx.compose.ui.graphics.Color
+import com.tfg.halteroanalyzer.domain.LiftPhase
+import com.tfg.halteroanalyzer.domain.ScoreLevel
 
 /** Pantalla principal: selección, preparación, progreso y resultado del análisis. */
 @Composable
@@ -76,6 +81,7 @@ fun AnalysisScreen(viewModel: AnalysisViewModel, modifier: Modifier = Modifier) 
             is AnalysisUiState.Completed -> CompletedContent(
                 video = state.video,
                 chart = state.chart,
+                snapshots = state.snapshots,
                 summary = state.summary,
                 onRestart = viewModel::reset,
             )
@@ -117,12 +123,14 @@ private fun ProgressContent(message: String) {
 private fun CompletedContent(
     video: File,
     chart: File?,
+    snapshots: Map<String, File>,
     summary: AnalysisSummary?,
     onRestart: () -> Unit,
 ) {
     Text("Análisis completado", style = MaterialTheme.typography.titleLarge)
     VideoPlayer(video = video, modifier = Modifier.fillMaxWidth())
 
+    summary?.let { OverallScore(it.overallScore) }
     summary?.let { SummaryContent(it) }
 
     chart?.let {
@@ -131,8 +139,31 @@ private fun CompletedContent(
         ChartImage(it)
     }
 
+    if (summary != null && summary.phases.isNotEmpty()) {
+        HorizontalDivider()
+        Text("Fases del levantamiento", style = MaterialTheme.typography.titleMedium)
+        summary.phases.forEach { phase ->
+            PhaseCard(phase = phase, snapshot = snapshots[phase.id])
+        }
+    }
+
     OutlinedButton(onClick = onRestart, modifier = Modifier.fillMaxWidth()) {
         Text("Analizar otro levantamiento")
+    }
+}
+
+@Composable
+private fun OverallScore(score: Double) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "%.1f".format(score),
+            style = MaterialTheme.typography.displayMedium,
+            color = scoreColor(ScoreLevel.fromScore(score)),
+        )
+        Text("sobre 10", style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -144,15 +175,14 @@ private fun SummaryContent(summary: AnalysisSummary) {
     ) {
         MetricRow("Duración del levantamiento", "%.2f s".format(summary.liftDurationSeconds))
         MetricRow("Velocidad máxima", "%.2f m/s".format(summary.peakVelocityMs))
-        MetricRow("Instante de velocidad máxima", "%.2f s".format(summary.peakVelocityTime))
         MetricRow("Trayectoria de la barra", summary.barPathQuality.label())
         MetricRow("Desviación horizontal", "%.1f %%".format(summary.barPathDeviation * 100))
         MetricRow("Detección corporal", "%.0f %%".format(summary.detectionRatio * 100))
-        MetricRow("Detección corporal", "%.0f %%".format(summary.detectionRatio * 100))
+
         if (summary.detectionRatio < 0.9) {
             Text(
                 text = "El rastreo falló en parte del levantamiento. " +
-                        "Revisa que la grabación no tape ningún punto corporal.",
+                        "Revisa que la grabación sea a 45º y con el cuerpo completo en cuadro.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -203,4 +233,69 @@ private fun PathQuality.label(): String = when (this) {
     PathQuality.ACCEPTABLE -> "Aceptable"
     PathQuality.POOR -> "Mejorable"
     PathQuality.UNKNOWN -> "Sin valorar"
+}
+
+@Composable
+private fun PhaseCard(phase: LiftPhase, snapshot: File?) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(phase.label, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = "%.2f s – %.2f s".format(phase.startSeconds, phase.endSeconds),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Text(
+                    text = if (phase.isScored) "%.1f".format(phase.score) else "—",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = scoreColor(phase.level),
+                )
+            }
+
+            snapshot?.let { SnapshotImage(it, phase.label) }
+
+            phase.criteria.forEach { criterio ->
+                Text(
+                    text = criterio.explanation,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            if (!phase.isScored) {
+                Text(
+                    text = "No hubo datos suficientes para evaluar esta fase.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SnapshotImage(file: File, description: String) {
+    val bitmap = remember(file.path) { BitmapFactory.decodeFile(file.path) } ?: return
+    Image(
+        bitmap = bitmap.asImageBitmap(),
+        contentDescription = "Captura de la fase $description",
+        contentScale = ContentScale.FillWidth,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Color asociado a cada nivel de puntuación. */
+@Composable
+private fun scoreColor(level: ScoreLevel) = when (level) {
+    ScoreLevel.GOOD -> Color(0xFF2E7D32)
+    ScoreLevel.FAIR -> Color(0xFFEF6C00)
+    ScoreLevel.POOR -> MaterialTheme.colorScheme.error
+    ScoreLevel.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
 }

@@ -9,6 +9,9 @@ import com.tfg.halteroanalyzer.domain.AnalysisSummary
 import com.tfg.halteroanalyzer.domain.JobStatus
 import com.tfg.halteroanalyzer.domain.PathQuality
 import com.tfg.halteroanalyzer.domain.VideoSource
+import com.tfg.halteroanalyzer.domain.Criterion
+import com.tfg.halteroanalyzer.domain.LiftPhase
+import com.tfg.halteroanalyzer.domain.ScoreLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -245,6 +248,34 @@ class AnalysisViewModelTest {
         assertEquals(listOf("trabajo-1"), repository.deleted)
     }
 
+
+    @Test
+    fun `descarga las capturas de las fases`() = runTest(dispatcher) {
+        val vm = viewModel(FakeRepository())
+        prepare(vm)
+
+        vm.startAnalysis()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value as AnalysisUiState.Completed
+        assertTrue(state.snapshots.containsKey("first_pull"))
+        assertTrue(state.snapshots.getValue("first_pull").exists())
+    }
+
+    @Test
+    fun `reiniciar borra tambien las capturas`() = runTest(dispatcher) {
+        val vm = viewModel(FakeRepository())
+        prepare(vm)
+        vm.startAnalysis()
+        advanceUntilIdle()
+        val capturas = (vm.uiState.value as AnalysisUiState.Completed).snapshots.values.toList()
+
+        vm.reset()
+        advanceUntilIdle()
+
+        assertTrue(capturas.all { !it.exists() })
+    }
+
     // --- Utilidades ---
 
     /** Deja el ViewModel listo para lanzar un análisis. */
@@ -260,6 +291,8 @@ class AnalysisViewModelTest {
         resultFileProvider = object : ResultFileProvider {
             override fun videoFor(jobId: String): File = tempFolder.newFile("$jobId.mp4")
             override fun chartFor(jobId: String): File = tempFolder.newFile("$jobId.png")
+            override fun snapshotFor(jobId: String, name: String): File =
+                tempFolder.newFile("$jobId-$name")
         },
     )
 
@@ -316,6 +349,15 @@ class AnalysisViewModelTest {
             return Result.success(destination)
         }
 
+        override suspend fun downloadSnapshot(
+            jobId: String,
+            name: String,
+            destination: File,
+        ): Result<File> {
+            destination.writeBytes(byteArrayOf(6, 7))
+            return Result.success(destination)
+        }
+
         override suspend fun delete(jobId: String): Result<Unit> {
             deleted.add(jobId)
             return Result.success(Unit)
@@ -336,6 +378,28 @@ class AnalysisViewModelTest {
             peakVelocityTime = 0.6,
             hasVelocityChart = hasChart,
             interpolatedFrames = 2,
+            overallScore = 7.4,
+            phases = listOf(
+                LiftPhase(
+                    id = "first_pull",
+                    label = "Primera tirada",
+                    startSeconds = 0.0,
+                    endSeconds = 0.5,
+                    durationSeconds = 0.5,
+                    snapshot = "first_pull.jpg",
+                    score = 8.1,
+                    level = ScoreLevel.GOOD,
+                    criteria = listOf(
+                        Criterion(
+                            criterion = "verticalidad",
+                            score = 8.1,
+                            level = ScoreLevel.GOOD,
+                            measuredValue = 0.106,
+                            explanation = "La barra se desvió un 11%.",
+                        ),
+                    ),
+                ),
+            ),
         )
     }
 }

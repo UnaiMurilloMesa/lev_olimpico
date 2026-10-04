@@ -111,5 +111,11 @@ class AnalysisStatusPollerTest {
             throw NotImplementedError()
 
         override suspend fun delete(jobId: String): Result<Unit> = throw NotImplementedError()
+
+        override suspend fun downloadSnapshot(
+            jobId: String,
+            name: String,
+            destination: File,
+        ): Result<File> = throw NotImplementedError()
     }
 }

@@ -22,7 +22,7 @@ class PhaseDetectionConfig:
         antes de dar por terminada la primera tirada.
     """
 
-    knee_tolerance: float = -0.02
+    knee_tolerance: float = 0.0
     peak_drop: float = 0.015
 
 

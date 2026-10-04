@@ -9,4 +9,5 @@ interface AnalysisRepository {
     suspend fun downloadVideo(jobId: String, destination: File): Result<File>
     suspend fun downloadChart(jobId: String, destination: File): Result<File>
     suspend fun delete(jobId: String): Result<Unit>
+    suspend fun downloadSnapshot(jobId: String, name: String, destination: File): Result<File>
 }

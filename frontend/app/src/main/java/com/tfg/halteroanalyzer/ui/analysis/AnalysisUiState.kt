@@ -38,6 +38,7 @@ sealed interface AnalysisUiState {
         val jobId: String,
         val video: File,
         val chart: File?,
+        val snapshots: Map<String, File>,
         val summary: AnalysisSummary?,
     ) : AnalysisUiState
 
