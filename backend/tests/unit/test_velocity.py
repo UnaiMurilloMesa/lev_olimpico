@@ -111,3 +111,46 @@ def test_devuelve_la_serie_para_representarla() -> None:
     tiempos, valores = velocidad.as_series()
 
     assert len(tiempos) == len(valores) == 20
+
+
+def test_las_series_cortas_no_descartan_muestras() -> None:
+    velocidad = compute_bar_velocity(_sequence([0.9, 0.7, 0.5, 0.3, 0.1]), SCALE)
+
+    assert len(velocidad.reliable_samples) == len(velocidad)
+
+
+def test_la_serie_completa_sigue_disponible_para_la_grafica() -> None:
+    subida = [0.9 - 0.01 * paso for paso in range(40)]
+
+    velocidad = compute_bar_velocity(_sequence(subida), SCALE)
+    tiempos, _ = velocidad.as_series()
+
+    assert len(tiempos) == 40
+    assert len(velocidad.reliable_samples) < 40
+
+
+def test_el_margen_descartado_es_media_ventana_de_suavizado() -> None:
+    velocidad = compute_bar_velocity(_sequence([0.5] * 40), SCALE)
+
+    assert velocidad.edge_margin == 3  # ventana de 7 fotogramas a 30 fps
+
+
+def test_el_pico_nunca_cae_en_los_fotogramas_descartados() -> None:
+    """Un artefacto en el borde inicial no puede ser el pico."""
+    salto = [0.9, 0.1]
+    movimiento = [0.1 + 0.003 * paso for paso in range(40)]
+
+    velocidad = compute_bar_velocity(_sequence(salto + movimiento), SCALE)
+
+    descartados = velocidad.samples[: velocidad.edge_margin]
+    assert velocidad.peak not in descartados
+
+
+def test_el_pico_nunca_cae_en_el_borde_final() -> None:
+    movimiento = [0.9 - 0.003 * paso for paso in range(40)]
+    salto = [0.3, 0.0]
+
+    velocidad = compute_bar_velocity(_sequence(movimiento + salto), SCALE)
+
+    descartados = velocidad.samples[-velocidad.edge_margin :]
+    assert velocidad.peak not in descartados

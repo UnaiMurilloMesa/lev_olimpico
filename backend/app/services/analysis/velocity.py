@@ -12,6 +12,8 @@ from app.domain.scale import BodyScale
 from app.domain.sequence import PoseSequence
 from app.services.pose.smoother import DEFAULT_POLYNOMIAL_ORDER, DEFAULT_WINDOW_MS
 
+MIN_SAMPLES_FOR_MARGIN = 12
+
 
 @dataclass(frozen=True, slots=True)
 class VelocitySample:
@@ -30,6 +32,7 @@ class BarVelocity:
     """
 
     samples: tuple[VelocitySample, ...]
+    edge_margin: int = 0
 
     def __len__(self) -> int:
         """Número de muestras de la serie."""
@@ -37,10 +40,23 @@ class BarVelocity:
 
     @property
     def peak(self) -> VelocitySample | None:
-        """Muestra de velocidad ascendente máxima."""
-        if not self.samples:
+        """Muestra de velocidad ascendente máxima, excluidos los bordes.
+
+        Los extremos de la serie se descartan porque la derivada que produce
+        el filtro es poco fiable allí, y un artefacto de borde daría una
+        velocidad máxima inventada.
+        """
+        candidates = self.reliable_samples
+        if not candidates:
             return None
-        return max(self.samples, key=lambda sample: sample.velocity_ms)
+        return max(candidates, key=lambda sample: sample.velocity_ms)
+
+    @property
+    def reliable_samples(self) -> tuple[VelocitySample, ...]:
+        """Muestras cuya derivada no está afectada por los bordes del filtro."""
+        if self.edge_margin == 0 or len(self.samples) < MIN_SAMPLES_FOR_MARGIN:
+            return self.samples
+        return self.samples[self.edge_margin : -self.edge_margin]
 
     @property
     def peak_velocity_ms(self) -> float:
@@ -108,7 +124,7 @@ def compute_bar_velocity(
         )
         for (index, _), value in zip(known, derivative, strict=True)
     )
-    return BarVelocity(samples=samples)
+    return BarVelocity(samples=samples, edge_margin=window // 2 if window else 0)
 
 
 def _odd_window(
