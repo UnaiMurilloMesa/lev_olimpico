@@ -166,3 +166,21 @@ def test_acepta_el_instante_de_inicio(client: TestClient) -> None:
     )
 
     assert response.status_code == 202
+
+
+def test_rechaza_una_captura_con_nombre_no_permitido(client: TestClient) -> None:
+    """Evita el acceso a ficheros fuera del espacio de trabajo."""
+    response = client.get("/api/v1/analyses/abc/phases/..%2F..%2Fsecret.txt")
+
+    assert response.status_code == 404
+
+
+def test_descarga_la_captura_de_una_fase(client: TestClient, settings: Settings) -> None:
+    carpeta = settings.storage_dir / "trabajo-listo" / "phases"
+    carpeta.mkdir(parents=True)
+    (carpeta / "first_pull.jpg").write_bytes(b"\xff\xd8\xff")
+
+    response = client.get("/api/v1/analyses/trabajo-listo/phases/first_pull.jpg")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/jpeg"

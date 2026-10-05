@@ -10,9 +10,9 @@ from celery import Task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.domain.job import JobStatus
+from app.services.cleanup import WorkspaceCleaner
 from app.services.factory import build_analysis_service
 from app.services.workspace import JobWorkspace
-from app.services.cleanup import WorkspaceCleaner
 
 logger = logging.getLogger(__name__)
 
