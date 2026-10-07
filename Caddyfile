@@ -1,0 +1,15 @@
+57.129.175.123.duckdns.org {
+	encode gzip
+
+	# Los vídeos pueden tardar en subirse y en analizarse.
+	request_body {
+		max_size 200MB
+	}
+
+	reverse_proxy api:8000 {
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+}
