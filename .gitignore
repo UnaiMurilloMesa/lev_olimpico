@@ -15,3 +15,5 @@ frontend/local.properties
 frontend/build/
 frontend/app/build/
 *.iml
+frontend/keystore.properties
+frontend/*.jks
